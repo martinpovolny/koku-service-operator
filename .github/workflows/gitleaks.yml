@@ -51,6 +51,7 @@ jobs:
           chmod +x gitleaks
 
       - name: Run gitleaks
+        id: gitleaks
         run: |
           # --exit-code 2: leaks found. Scan errors stay 1. Continue only for 0 or 2
           # so the SARIF is available for upload / the fail-on-leaks step.
@@ -62,13 +63,20 @@ jobs:
             --report-path results.sarif \
             --redact \
             --exit-code 2 || code=$?
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
           if [ "$code" -ne 0 ] && [ "$code" -ne 2 ]; then
             echo "::error::gitleaks failed with exit code $code (scan error, not leak findings)"
             exit "$code"
           fi
 
+      # Do not use always(): a scan error still writes a partial SARIF that
+      # would overwrite a complete code-scanning result set.
       - name: Upload SARIF
-        if: always() && env.UPLOAD_SARIF == 'true' && hashFiles('results.sarif') != ''
+        if: >-
+          env.UPLOAD_SARIF == 'true'
+          && (steps.gitleaks.outputs.exit_code == '0'
+              || steps.gitleaks.outputs.exit_code == '2')
+          && hashFiles('results.sarif') != ''
         uses: github/codeql-action/upload-sarif@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
         with:
           sarif_file: results.sarif
