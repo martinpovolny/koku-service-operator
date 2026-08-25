@@ -57,7 +57,7 @@ Chart ServiceMonitors still unmatched:
 | `rbac-api` | port `http`, `/metrics` | none. `RBACAPIService` is `http` only; `RBACAPINetworkPolicy` has no monitoring peer |
 | `ros-api` | port `metrics`, `/metrics` | not in `AppServiceMonitor` (Cost-core SM is API / Masu / Ingress) |
 | `ros-processor` / `ros-recommendation-poller` | port `metrics`, `/metrics` | none (no Services) |
-| `kruize` / `ros-optimization` | port `http`, `/q/metrics` | builder matches chart; not applied until COST-8054 |
+| `kruize` / `ros-optimization` | port `http`, `/q/metrics` | builder matches chart; not applied until COST-8054. `KruizeNetworkPolicy` has no monitoring peer (chart same), so apply-only will not scrape under default-deny |
 
 Cost-core scrape that **does** work: Koku API, Masu, Ingress (`AppServiceMonitor`
 port `metrics`), Gateway (Envoy admin `/stats/prometheus`), Celery workers,
@@ -87,5 +87,5 @@ custom roles.
 1. **Add RBAC ServiceMonitor + monitoring peer** on `RBACAPINetworkPolicy` (Cost-core leftover; chart scrapes `http` `/metrics`)
 2. **Add ROS Processor + Poller Services** (prerequisite for scrape; COST-8054)
 3. **Add processor-metrics and poller-metrics NetworkPolicies** (COST-8054)
-4. **Apply ROS API / processor / poller / Kruize ServiceMonitors** when ROS is on (COST-8054; Kruize builder already uses `http` `/q/metrics`)
+4. **Apply ROS API / processor / poller / Kruize ServiceMonitors** when ROS is on (COST-8054; Kruize builder already uses `http` `/q/metrics`). Applying the Kruize SM still will not scrape in a default-deny namespace: `KruizeNetworkPolicy` has no monitoring peer (the chart has the same gap).
 5. **Expose `roleCreateAllowList`** in the RBAC CR section if REST custom roles are required
