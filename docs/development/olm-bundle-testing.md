@@ -129,8 +129,12 @@ That still confirms the operator is reconciling. For a fuller BYOI fixture, see
 
 ## Cleanup
 
+Delete the CR **before** `make bundle-cleanup`. Removing the CSV first kills
+the operator and leaves the CR finalizer stuck. Full order and recovery:
+[uninstall.md](../install/uninstall.md).
+
 ```bash
-oc delete cmsc cost-management -n cost-onprem --ignore-not-found
+oc delete cmsc cost-management -n cost-onprem --timeout=180s --ignore-not-found
 make bundle-cleanup
 ```
 
