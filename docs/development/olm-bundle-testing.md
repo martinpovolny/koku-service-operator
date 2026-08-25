@@ -135,6 +135,10 @@ the operator and leaves the CR finalizer stuck. Full order and recovery:
 
 ```bash
 oc delete cmsc cost-management -n cost-onprem --timeout=180s --ignore-not-found
+if oc -n cost-onprem get cmsc cost-management >/dev/null 2>&1; then
+  echo "CMSC still present; not running bundle-cleanup. See uninstall.md recovery." >&2
+  exit 1
+fi
 make bundle-cleanup
 ```
 

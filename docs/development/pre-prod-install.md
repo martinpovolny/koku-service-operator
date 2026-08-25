@@ -293,6 +293,10 @@ Delete the CR first while the operator is still running. `hack/demo-preprod.sh -
 
 ```bash
 oc -n "$NAMESPACE" delete cmsc "$CR_NAME" --timeout=180s
+if oc -n "$NAMESPACE" get cmsc "$CR_NAME" >/dev/null 2>&1; then
+  echo "CMSC still present; not deleting the namespace. See uninstall.md recovery." >&2
+  exit 1
+fi
 oc delete ns "$NAMESPACE" "$INFRA_NAMESPACE" --ignore-not-found
 ```
 

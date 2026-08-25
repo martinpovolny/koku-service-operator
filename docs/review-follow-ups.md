@@ -46,6 +46,16 @@ for full analysis including dropped alternatives.
 
 ---
 
+## 5. Controller does not watch StorageClasses — **accepted (wontfix)**
+
+No StorageClass `Watches()`. Discovery re-lists the cluster default on every
+reconcile; a default-SC change is picked up on the next CR event or the
+5-minute drift requeue. Production BYOI sets `spec.global.storageClass` or
+creates no PVCs (PVC builders read spec, not discovered status). Not worth a
+cluster-scoped watch.
+
+---
+
 ## 7. Keycloak sync: mount CA bundle for private-CA Keycloak
 
 **Source:** Code review finding.
@@ -87,9 +97,10 @@ process `deletionTimestamp`. The namespace stays `Terminating` and
 ConsoleLink leaks.
 
 **Documented:** [uninstall.md](install/uninstall.md) — delete the CR, wait
-until it is gone, then the namespace or operator. Lab
-`hack/demo-preprod.sh --reset` and `scripts/install-cmsc.sh` cleanup already
-do this (strip the finalizer only if the operator is already gone).
+until it is gone, then the namespace or operator.
+`hack/demo-preprod.sh --reset` strips the finalizer if the operator is already
+gone. `scripts/install-cmsc.sh` cleanup deletes the CR first but does **not**
+recover a stuck finalizer.
 
 **Still open:** OLM uninstall that removes the CSV before the CR still hits
 the trap. A bundle that deletes (or blocks on) the CR first would close it.
