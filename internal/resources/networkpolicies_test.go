@@ -312,21 +312,41 @@ func TestROSAPINetworkPolicy_GatewayAndMonitoring(t *testing.T) {
 	if len(np.Spec.Ingress) != 2 {
 		t.Fatalf("expected gateway + monitoring rules, got %d", len(np.Spec.Ingress))
 	}
-	if !peerHasComponent(np.Spec.Ingress[0], "gateway") {
-		t.Error("ROS API must accept traffic from gateway")
+
+	var gateway, mon *networkingv1.NetworkPolicyIngressRule
+	for i := range np.Spec.Ingress {
+		r := &np.Spec.Ingress[i]
+		if peerHasComponent(*r, "gateway") {
+			gateway = r
+		}
+		if ruleHasNamespaceLabel(*r, "network.openshift.io/policy-group", "monitoring") {
+			mon = r
+		}
 	}
-	if !ruleAllowsPort(np.Spec.Ingress, rosAPIPort) {
-		t.Errorf("missing ros API port %d", rosAPIPort)
+	if gateway == nil {
+		t.Fatal("missing gateway ingress rule")
 	}
-	if !ruleAllowsPort(np.Spec.Ingress, rosMetricPort) {
-		t.Errorf("missing ros metrics port %d", rosMetricPort)
+	if mon == nil {
+		t.Fatal("missing monitoring ingress rule")
 	}
-	mon := np.Spec.Ingress[1]
+	if gateway == mon {
+		t.Fatal("gateway and monitoring must be separate ingress rules")
+	}
+
+	if !ingressRuleAllowsPort(*gateway, rosAPIPort) {
+		t.Errorf("gateway rule missing ros API port %d", rosAPIPort)
+	}
+	if ingressRuleAllowsPort(*gateway, rosMetricPort) {
+		t.Errorf("gateway rule must not allow metrics port %d", rosMetricPort)
+	}
+	if !ingressRuleAllowsPort(*mon, rosMetricPort) {
+		t.Errorf("monitoring rule missing ros metrics port %d", rosMetricPort)
+	}
+	if ingressRuleAllowsPort(*mon, rosAPIPort) {
+		t.Errorf("monitoring rule must not allow API port %d", rosAPIPort)
+	}
 	if len(mon.From) != 3 {
 		t.Fatalf("expected 3 monitoring namespace peers, got %d", len(mon.From))
-	}
-	if !ruleHasNamespaceLabel(mon, "network.openshift.io/policy-group", "monitoring") {
-		t.Error("missing policy-group=monitoring peer")
 	}
 }
 
@@ -369,11 +389,18 @@ func mapsEqual(a, b map[string]string) bool {
 
 func ruleAllowsPort(rules []networkingv1.NetworkPolicyIngressRule, port int32) bool {
 	for _, rule := range rules {
-		for _, p := range rule.Ports {
-			if p.Port != nil && p.Port.IntVal == port {
-				if p.Protocol == nil || *p.Protocol == corev1.ProtocolTCP {
-					return true
-				}
+		if ingressRuleAllowsPort(rule, port) {
+			return true
+		}
+	}
+	return false
+}
+
+func ingressRuleAllowsPort(rule networkingv1.NetworkPolicyIngressRule, port int32) bool {
+	for _, p := range rule.Ports {
+		if p.Port != nil && p.Port.IntVal == port {
+			if p.Protocol == nil || *p.Protocol == corev1.ProtocolTCP {
+				return true
 			}
 		}
 	}
