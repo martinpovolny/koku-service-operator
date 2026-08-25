@@ -104,7 +104,7 @@ oc apply -n cost-onprem \
   -f config/samples/service.costmanagement_v1alpha1_costmanagementserviceconfig.yaml
 
 oc get cmsc -n cost-onprem
-oc describe cmsc cost-management -n cost-onprem
+oc describe cmsc cost-onprem -n cost-onprem
 ```
 
 Still requires external Kafka / OIDC / object storage for a full Ready stack.
@@ -134,8 +134,9 @@ the operator and leaves the CR finalizer stuck. Full order and recovery:
 [uninstall.md](../install/uninstall.md).
 
 ```bash
-oc delete cmsc cost-management -n cost-onprem --timeout=180s --ignore-not-found
-if oc -n cost-onprem get cmsc cost-management >/dev/null 2>&1; then
+# --all covers both samples in this file (bundled `cost-onprem`, BYOI `cost-management`)
+oc delete cmsc -n cost-onprem --all --timeout=180s --ignore-not-found
+if oc get cmsc -n cost-onprem --no-headers 2>/dev/null | grep -q .; then
   echo "CMSC still present; not running bundle-cleanup. See uninstall.md recovery." >&2
   exit 1
 fi
