@@ -303,19 +303,30 @@ func TestListenerNetworkPolicy(t *testing.T) {
 	}
 }
 
-func TestROSAPINetworkPolicy_GatewayOnly(t *testing.T) {
-	// Extends the smoke test in names_test.go with peer/port assertions.
+func TestROSAPINetworkPolicy_GatewayAndMonitoring(t *testing.T) {
+	// Gateway on 8000 (JWT-authenticated API traffic) plus Prometheus scrape
+	// of the metrics port (matches chart ros-api-metrics NetworkPolicy).
 	cfg := testCfg()
 	np := ROSAPINetworkPolicy(cfg)
 	assertIngressOnly(t, np)
-	if len(np.Spec.Ingress) != 1 {
-		t.Fatalf("expected single gateway rule, got %d", len(np.Spec.Ingress))
+	if len(np.Spec.Ingress) != 2 {
+		t.Fatalf("expected gateway + monitoring rules, got %d", len(np.Spec.Ingress))
 	}
 	if !peerHasComponent(np.Spec.Ingress[0], "gateway") {
-		t.Error("ROS API must only accept traffic from gateway")
+		t.Error("ROS API must accept traffic from gateway")
 	}
 	if !ruleAllowsPort(np.Spec.Ingress, rosAPIPort) {
 		t.Errorf("missing ros API port %d", rosAPIPort)
+	}
+	if !ruleAllowsPort(np.Spec.Ingress, rosMetricPort) {
+		t.Errorf("missing ros metrics port %d", rosMetricPort)
+	}
+	mon := np.Spec.Ingress[1]
+	if len(mon.From) != 3 {
+		t.Fatalf("expected 3 monitoring namespace peers, got %d", len(mon.From))
+	}
+	if !ruleHasNamespaceLabel(mon, "network.openshift.io/policy-group", "monitoring") {
+		t.Error("missing policy-group=monitoring peer")
 	}
 }
 
