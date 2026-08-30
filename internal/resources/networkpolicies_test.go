@@ -90,7 +90,7 @@ func TestRBACAPINetworkPolicy(t *testing.T) {
 	var monitoring *networkingv1.NetworkPolicyIngressRule
 	for i := range np.Spec.Ingress {
 		rule := &np.Spec.Ingress[i]
-		if ruleHasNamespaceLabel(*rule, "network.openshift.io/policy-group", "monitoring") {
+		if ruleHasNamespaceLabel(*rule, "kubernetes.io/metadata.name", "openshift-user-workload-monitoring") {
 			monitoring = rule
 			break
 		}
@@ -101,8 +101,31 @@ func TestRBACAPINetworkPolicy(t *testing.T) {
 	if !ingressRuleAllowsPort(*monitoring, rbacAPIPort) {
 		t.Errorf("monitoring rule missing RBAC API port %d", rbacAPIPort)
 	}
-	if len(monitoring.From) != 3 {
-		t.Fatalf("expected 3 monitoring namespace peers, got %d", len(monitoring.From))
+	if len(monitoring.From) != 2 {
+		t.Fatalf("expected 2 Prometheus peers, got %d", len(monitoring.From))
+	}
+	wantNamespaces := map[string]bool{
+		"openshift-monitoring":               false,
+		"openshift-user-workload-monitoring": false,
+	}
+	for _, peer := range monitoring.From {
+		if peer.NamespaceSelector == nil || peer.PodSelector == nil {
+			t.Fatal("monitoring peer must select both a namespace and Prometheus pods")
+		}
+		if peer.PodSelector.MatchLabels["app.kubernetes.io/name"] != "prometheus" {
+			t.Errorf("monitoring pod selector = %v, want app.kubernetes.io/name=prometheus", peer.PodSelector.MatchLabels)
+		}
+		namespace := peer.NamespaceSelector.MatchLabels["kubernetes.io/metadata.name"]
+		if _, ok := wantNamespaces[namespace]; !ok {
+			t.Errorf("unexpected monitoring namespace selector %v", peer.NamespaceSelector.MatchLabels)
+			continue
+		}
+		wantNamespaces[namespace] = true
+	}
+	for namespace, found := range wantNamespaces {
+		if !found {
+			t.Errorf("missing Prometheus peer for namespace %q", namespace)
+		}
 	}
 }
 

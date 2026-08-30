@@ -74,6 +74,34 @@ func monitoringFrom(port int32) networkingv1.NetworkPolicyIngressRule {
 	}
 }
 
+// prometheusFrom allows only the OpenShift platform and user-workload
+// Prometheus pods to scrape a port. Use this for a metrics endpoint that
+// shares its listener with application routes, because NetworkPolicy cannot
+// restrict access by HTTP path.
+func prometheusFrom(port int32) networkingv1.NetworkPolicyIngressRule {
+	return networkingv1.NetworkPolicyIngressRule{
+		From: []networkingv1.NetworkPolicyPeer{
+			{
+				NamespaceSelector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{"kubernetes.io/metadata.name": "openshift-monitoring"},
+				},
+				PodSelector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{"app.kubernetes.io/name": "prometheus"},
+				},
+			},
+			{
+				NamespaceSelector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{"kubernetes.io/metadata.name": "openshift-user-workload-monitoring"},
+				},
+				PodSelector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{"app.kubernetes.io/name": "prometheus"},
+				},
+			},
+		},
+		Ports: []networkingv1.NetworkPolicyPort{tcpPort(port)},
+	}
+}
+
 // -----------------------------------------------------------------------------
 // Gateway (Envoy JWT proxy)
 // -----------------------------------------------------------------------------
@@ -144,7 +172,7 @@ func RBACAPINetworkPolicy(cfg *costv1alpha1.CostManagementServiceConfig) *networ
 		podFrom(cfg, "cost-management-api", rbacAPIPort),
 		podFrom(cfg, "cost-processor", rbacAPIPort),
 		podFrom(cfg, "ros-api", rbacAPIPort),
-		monitoringFrom(rbacAPIPort),
+		prometheusFrom(rbacAPIPort),
 	})
 }
 
