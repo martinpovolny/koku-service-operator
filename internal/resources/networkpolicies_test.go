@@ -86,6 +86,24 @@ func TestRBACAPINetworkPolicy(t *testing.T) {
 			t.Errorf("missing peer component %q", comp)
 		}
 	}
+
+	var monitoring *networkingv1.NetworkPolicyIngressRule
+	for i := range np.Spec.Ingress {
+		rule := &np.Spec.Ingress[i]
+		if ruleHasNamespaceLabel(*rule, "network.openshift.io/policy-group", "monitoring") {
+			monitoring = rule
+			break
+		}
+	}
+	if monitoring == nil {
+		t.Fatal("missing monitoring ingress rule")
+	}
+	if !ingressRuleAllowsPort(*monitoring, rbacAPIPort) {
+		t.Errorf("monitoring rule missing RBAC API port %d", rbacAPIPort)
+	}
+	if len(monitoring.From) != 3 {
+		t.Fatalf("expected 3 monitoring namespace peers, got %d", len(monitoring.From))
+	}
 }
 
 func TestMasuNetworkPolicy(t *testing.T) {

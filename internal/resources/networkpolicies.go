@@ -136,13 +136,15 @@ func KruizeNetworkPolicy(cfg *costv1alpha1.CostManagementServiceConfig) *network
 // -----------------------------------------------------------------------------
 
 // RBACAPINetworkPolicy allows the gateway, koku-api, masu, and ros-api to
-// call the RBAC service for authorization checks.
+// call the RBAC service for authorization checks, and Prometheus to scrape
+// its metrics endpoint.
 func RBACAPINetworkPolicy(cfg *costv1alpha1.CostManagementServiceConfig) *networkingv1.NetworkPolicy {
 	return netpol(cfg, cfg.Name+"-rbac-api", "rbac-api", []networkingv1.NetworkPolicyIngressRule{
 		podFrom(cfg, "gateway", rbacAPIPort),
 		podFrom(cfg, "cost-management-api", rbacAPIPort),
 		podFrom(cfg, "cost-processor", rbacAPIPort),
 		podFrom(cfg, "ros-api", rbacAPIPort),
+		monitoringFrom(rbacAPIPort),
 	})
 }
 
