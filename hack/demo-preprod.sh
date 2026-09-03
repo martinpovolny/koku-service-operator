@@ -437,7 +437,92 @@ ui_deploy_ready() {
   [[ "$("$KUBECTL" -n "$NAMESPACE" get deploy "${CR_NAME}-ui" -o jsonpath='{.status.availableReplicas}' 2>/dev/null || echo 0)" != "0" ]]
 }
 
+# RHBK / Keycloak operator: the channel deploy-rhbk.sh pins (stable-v22) ships
+# amd64-only operator images. On the arm64 CRC node we pre-create the
+# Subscription on an arm64-capable channel (stable-v26); deploy-rhbk.sh then
+# finds it and skips its own create. No-op on amd64 / clusterbot.
+ensure_rhbk_channel() {
+  local ns="$1" channel="$2"
+  need_ns "$ns"
+  "$KUBECTL" apply -f - >/dev/null <<EOF
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: rhbk-operator-group
+  namespace: ${ns}
+spec:
+  targetNamespaces:
+  - ${ns}
+EOF
+  local cur
+  cur="$("$KUBECTL" -n "$ns" get subscription rhbk-operator -o jsonpath='{.spec.channel}' 2>/dev/null || true)"
+  if [[ -z "$cur" ]]; then
+    echo "  creating RHBK Subscription on channel ${channel} (arm64)"
+    "$KUBECTL" apply -f - >/dev/null <<EOF
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: rhbk-operator
+  namespace: ${ns}
+spec:
+  channel: ${channel}
+  installPlanApproval: Automatic
+  name: rhbk-operator
+  source: redhat-operators
+  sourceNamespace: openshift-marketplace
+EOF
+  elif [[ "$cur" != "$channel" ]]; then
+    echo "  repointing RHBK Subscription ${cur} -> ${channel} (arm64)"
+    "$KUBECTL" -n "$ns" patch subscription rhbk-operator --type=merge \
+      -p "{\"spec\":{\"channel\":\"${channel}\"}}" >/dev/null
+    "$KUBECTL" -n "$ns" delete csv -l "operators.coreos.com/rhbk-operator.${ns}" --ignore-not-found >/dev/null 2>&1 || true
+  else
+    echo "  RHBK Subscription already on channel ${channel}"
+  fi
+  echo "  waiting for deployment/rhbk-operator to be Available…"
+  local end=$((SECONDS + 300))
+  while (( SECONDS < end )); do
+    if [[ "$("$KUBECTL" -n "$ns" get deploy rhbk-operator -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo 0)" == "1" ]]; then
+      ok "RHBK operator ready (channel ${channel})"
+      return 0
+    fi
+    sleep 5
+  done
+  echo "error: RHBK operator (channel ${channel}) did not become ready in 5m" >&2
+  "$KUBECTL" -n "$ns" get csv,subscription,installplan,pods >&2 || true
+  exit 1
+}
+
+# RHBK >= v24 uses Hostname v2: spec.hostname.hostname / .admin must be full
+# URLs. deploy-rhbk.sh (written for v22) sets bare hostnames, which makes
+# keycloak-0 CrashLoop on the newer channel. This runs in the background while
+# deploy-rhbk.sh creates + waits on the Keycloak CR: as soon as the CR shows a
+# bare hostname, rewrite it to https:// and delete keycloak-0 so the StatefulSet
+# rolls a pod with the fixed config. Exits on its own; a no-op if the value is
+# already a URL. --crc only.
+crc_fix_keycloak_hostname_v2() {
+  local ns="$1" end=$((SECONDS + 600)) h
+  while (( SECONDS < end )); do
+    h="$("$KUBECTL" -n "$ns" get keycloak keycloak -o jsonpath='{.spec.hostname.hostname}' 2>/dev/null || true)"
+    if [[ -n "$h" ]]; then
+      case "$h" in
+        http://*|https://*) return 0 ;;
+        *)
+          echo "  [crc] rewriting Keycloak hostname '${h}' -> 'https://${h}' (RHBK Hostname v2)"
+          "$KUBECTL" -n "$ns" patch keycloak keycloak --type=merge \
+            -p "{\"spec\":{\"hostname\":{\"hostname\":\"https://${h}\",\"admin\":\"https://${h}\"}}}" >/dev/null 2>&1 || true
+          "$KUBECTL" -n "$ns" delete pod keycloak-0 --ignore-not-found >/dev/null 2>&1 || true
+          return 0 ;;
+      esac
+    fi
+    sleep 5
+  done
+}
+
 step "BYOI dependencies (Kafka, Postgres, Valkey, MinIO, Keycloak)"
+if [[ "$DEMO_CRC" == "1" ]] && ! keycloak_ready; then
+  ensure_rhbk_channel "$KEYCLOAK_NAMESPACE" "${DEMO_RHBK_CHANNEL:-stable-v26}"
+fi
 SKIP_KAFKA=0 SKIP_INFRA=0 SKIP_KEYCLOAK=0 SKIP_OAUTH_MIRROR=0
 kafka_ready && SKIP_KAFKA=1 && skip "Kafka ${KAFKA_CLUSTER_NAME} already Ready"
 infra_ready && SKIP_INFRA=1 && skip "infra in ${INFRA_NAMESPACE} already rolled out"
@@ -447,7 +532,13 @@ if [[ "${SKIP_KAFKA}${SKIP_INFRA}${SKIP_KEYCLOAK}${SKIP_OAUTH_MIRROR}" == "1111"
   skip "all BYOI stages healthy"
 else
   export SKIP_KAFKA SKIP_INFRA SKIP_KEYCLOAK SKIP_OAUTH_MIRROR
+  KC_FIX_PID=""
+  if [[ "$DEMO_CRC" == "1" && "$SKIP_KEYCLOAK" != "1" ]]; then
+    crc_fix_keycloak_hostname_v2 "$KEYCLOAK_NAMESPACE" &
+    KC_FIX_PID=$!
+  fi
   ./hack/deploy-byoi.sh
+  [[ -n "$KC_FIX_PID" ]] && wait "$KC_FIX_PID" 2>/dev/null || true
 fi
 ok "BYOI ready"
 
