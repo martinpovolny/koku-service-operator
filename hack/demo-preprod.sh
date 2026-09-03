@@ -7,9 +7,10 @@
 #   ./hack/demo-preprod.sh --reset          # delete app/infra/kafka/keycloak NS first
 #   ./hack/demo-preprod.sh --no-tmux
 #   ./hack/demo-preprod.sh --rebuild        # force operator image rebuild
+#   ./hack/demo-preprod.sh --crc            # target local CRC (arm64, single node)
 #
 # Settings: env vars, then hack/demo-preprod.local.env, then
-# hack/demo-preprod.env.example. See the example file.
+# hack/demo-preprod.env.example (and hack/demo-preprod.crc.env with --crc).
 #
 # tmux (default): left pane = numbered steps; top-right = kubectl klock pods
 # in NAMESPACE; bottom-right = kubectl klock pods in KAFKA_NAMESPACE.
@@ -29,6 +30,7 @@ DEMO_DRY_RUN="${DEMO_DRY_RUN:-0}"
 DEMO_NO_TMUX="${DEMO_NO_TMUX:-0}"
 DEMO_REBUILD="${DEMO_REBUILD:-0}"
 DEMO_NO_OPEN="${DEMO_NO_OPEN:-0}"
+DEMO_CRC="${DEMO_CRC:-0}"
 
 usage() {
   sed -n '2,18p' "$SCRIPT" | sed 's/^# \{0,1\}//'
@@ -41,6 +43,7 @@ while [[ $# -gt 0 ]]; do
     --no-tmux) DEMO_NO_TMUX=1 ;;
     --rebuild) DEMO_REBUILD=1 ;;
     --no-open) DEMO_NO_OPEN=1 ;;
+    --crc) DEMO_CRC=1 ;;
     -h|--help) usage; exit 0 ;;
     *)
       echo "error: unknown flag $1" >&2
@@ -73,10 +76,20 @@ load_env_file() {
   done <"$file"
 }
 
+# --crc: layer the CRC/arm64 profile under the normal files. load_env_file only
+# sets vars that are still unset, so real env > .local.env > .env.example >
+# .crc.env, and the amd64 path (no --crc) never reads this file.
+if [[ "$DEMO_CRC" == "1" ]]; then
+  load_env_file "${ROOT}/hack/demo-preprod.crc.env"
+fi
 load_env_file "${ROOT}/hack/demo-preprod.env.example"
 load_env_file "${ROOT}/hack/demo-preprod.local.env"
 
-KUBE_CONTEXT="${KUBE_CONTEXT:-clusterbot}"
+if [[ "$DEMO_CRC" == "1" ]]; then
+  KUBE_CONTEXT="${KUBE_CONTEXT:-crc}"
+else
+  KUBE_CONTEXT="${KUBE_CONTEXT:-clusterbot}"
+fi
 NAMESPACE="${NAMESPACE:-cost-byoi}"
 CR_NAME="${CR_NAME:-cost-management}"
 INFRA_NAMESPACE="${INFRA_NAMESPACE:-cost-byoi-infra}"
@@ -165,6 +178,7 @@ Pre-prod demo plan
   tmux:        ${TMUX_SESSION}  (NO_TMUX=${DEMO_NO_TMUX})
   reset:       ${DEMO_RESET}
   rebuild:     ${DEMO_REBUILD}
+  crc mode:    ${DEMO_CRC}$([[ "$DEMO_CRC" == "1" ]] && echo "  (arm64 image overrides + single-node Kafka from hack/demo-preprod.crc.env)")
   open UI:     ${OPEN_BROWSER} (NO_OPEN=${DEMO_NO_OPEN})
 
   [1/8] Preflight (context, oc, CHART_ROOT, StorageClass)
@@ -223,7 +237,7 @@ start_tmux() {
   tmux send-keys -t "${TMUX_SESSION}:demo.1" "until ${watch1}; do echo 'watcher retry in 3s…'; sleep 3; done" C-m
   tmux send-keys -t "${TMUX_SESSION}:demo.2" "until ${watch2}; do echo 'watcher retry in 3s…'; sleep 3; done" C-m
 
-  inner="cd $(printf %q "$ROOT") && DEMO_INNER=1 DEMO_RESET=$(printf %q "$DEMO_RESET") DEMO_REBUILD=$(printf %q "$DEMO_REBUILD") DEMO_NO_OPEN=$(printf %q "$DEMO_NO_OPEN") $(printf %q "$ROOT/hack/demo-preprod.sh")"
+  inner="cd $(printf %q "$ROOT") && DEMO_INNER=1 DEMO_RESET=$(printf %q "$DEMO_RESET") DEMO_REBUILD=$(printf %q "$DEMO_REBUILD") DEMO_NO_OPEN=$(printf %q "$DEMO_NO_OPEN") DEMO_CRC=$(printf %q "$DEMO_CRC") $(printf %q "$ROOT/hack/demo-preprod.sh")"
   tmux send-keys -t "${TMUX_SESSION}:demo.0" "$inner" C-m
   tmux select-pane -t "${TMUX_SESSION}:demo.0"
 
@@ -254,6 +268,16 @@ fi
 "$KUBECTL" config use-context "$KUBE_CONTEXT" >/dev/null
 require_reachable_cluster "$KUBECTL" || exit 1
 ok "using $($KUBECTL config current-context) — $($KUBECTL whoami --show-server)"
+
+if [[ "$DEMO_CRC" == "1" ]]; then
+  NODE_ARCH="$("$KUBECTL" get nodes -o jsonpath='{.items[0].status.nodeInfo.architecture}' 2>/dev/null || true)"
+  if [[ "$NODE_ARCH" != "arm64" ]]; then
+    echo "warning: --crc expects an arm64 node but the cluster reports '${NODE_ARCH:-unknown}'." >&2
+    echo "  The arm64 image overrides in hack/demo-preprod.crc.env may not match this node." >&2
+  else
+    ok "node architecture ${NODE_ARCH} (arm64 image overrides from hack/demo-preprod.crc.env)"
+  fi
+fi
 
 if [[ ! -x "${CHART_ROOT}/scripts/deploy-rhbk.sh" ]]; then
   echo "error: CHART_ROOT has no scripts/deploy-rhbk.sh: ${CHART_ROOT}" >&2
