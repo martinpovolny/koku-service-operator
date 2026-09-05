@@ -4,9 +4,8 @@ How **Koku UI** works, how it connects to a local **CRC** cluster running
 `koku-service-operator`, how its conditional gates work, how to seed synthetic
 data, and how to develop and test UI changes.
 
-Adapted from `project-koku/koku-ui` `UI_DEVELOPMENT_OVERVIEW.md`. The UI source
-lives in the **`project-koku/koku-ui`** repo (`apps/…` paths below are relative
-to that checkout); seeding and cluster wiring live in this repo.
+The UI source lives in the **`project-koku/koku-ui`** repo (`apps/…` paths below
+are relative to that checkout); seeding and cluster wiring live in this repo.
 
 For the cluster install itself see
 [crc-testing.md](crc-testing.md) / [pre-prod-install.md](pre-prod-install.md).
