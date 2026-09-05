@@ -280,6 +280,27 @@ curl -skI "https://$(oc -n "$NAMESPACE" get route "${CR_NAME}-ui" -o jsonpath='{
 
 ---
 
+## Part D — Seed test data (optional)
+
+The UI is empty until a source has uploaded cost data. The E2E test suite
+registers a source, generates NISE OCP data, and uploads it through the
+gateway/ingress — run it with cleanup disabled to leave the data in place:
+
+```bash
+E2E_CLEANUP_BEFORE=false E2E_CLEANUP_AFTER=false \
+NAMESPACE="$NAMESPACE" HELM_RELEASE_NAME="$CR_NAME" KEYCLOAK_NAMESPACE="$KEYCLOAK_NAMESPACE" \
+./scripts/run-pytest.sh --e2e --no-ui
+```
+
+`./scripts/run-pytest.sh` sets up the venv from `test/pytest/requirements.txt`
+and installs `koku-nise`. `test_01_source_registered` and
+`test_03_upload_data_via_ingress` do the seeding; the downstream verification
+steps query the Koku database pod directly and `skip` in BYOI mode, but masu
+still processes the upload off the Kafka topic. See
+[test/pytest/README.md](../../test/pytest/README.md#data-generation).
+
+---
+
 ## Common failures
 
 | Symptom | Cause | Fix |

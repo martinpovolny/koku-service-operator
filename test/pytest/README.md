@@ -333,24 +333,23 @@ Both `test_complete_flow.py` and `cost_management/conftest.py` import from `e2e_
 
 The test suite supports flexible data generation for different testing scenarios.
 
-### Quick Start: Scenario-Based Setup
+### Quick Start: Seed Data via the E2E Suite
+
+The E2E suite (`suites/e2e/test_complete_flow.py`) registers a source, generates
+NISE OCP data, and uploads it through the gateway/ingress. To leave the source
+and data in place for manual exploration, disable its pre/post cleanup:
 
 ```bash
-# List available scenarios
-./scripts/setup-test-data.sh --list
-
-# Set up data for scenario
-./scripts/setup-test-data.sh --scenario baseline
-
-# Run tests against the data
-./scripts/run-pytest.sh --e2e
+E2E_CLEANUP_BEFORE=false E2E_CLEANUP_AFTER=false \
+NAMESPACE=<cr-namespace> HELM_RELEASE_NAME=<cr-name> KEYCLOAK_NAMESPACE=<keycloak-ns> \
+./scripts/run-pytest.sh --e2e --no-ui
 ```
 
-See **[Test Data Setup Guide](../docs/development/test-data-setup.md)** for complete documentation on:
-- Available scenarios (minimal, baseline, perf-small, perf-medium, ros)
-- On-demand data loading for manual testing
-- Pre-test environment preparation
-- Troubleshooting data issues
+`test_01_source_registered` and `test_03_upload_data_via_ingress` do the actual
+seeding. The downstream steps (`test_02`, `test_04`–`test_09`: provider,
+manifest, masu, summary tables, Kruize) verify processing by querying the Koku
+**database pod** directly and `skip` when the database is external (BYOI) — masu
+still consumes the upload from the Kafka topic and processes it either way.
 
 ### NISE Data Generation (Default)
 Uses [koku-nise](https://github.com/project-koku/nise) to generate realistic OCP cost data:
