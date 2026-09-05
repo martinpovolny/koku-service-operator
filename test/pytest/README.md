@@ -333,11 +333,27 @@ Both `test_complete_flow.py` and `cost_management/conftest.py` import from `e2e_
 
 The test suite supports flexible data generation for different testing scenarios.
 
-### Quick Start: Seed Data via the E2E Suite
+### Quick Start: `./scripts/seed-test-data.sh`
 
-The E2E suite (`suites/e2e/test_complete_flow.py`) registers a source, generates
-NISE OCP data, and uploads it through the gateway/ingress. To leave the source
-and data in place for manual exploration, disable its pre/post cleanup:
+Registers an OpenShift source, generates NISE OCP data, and uploads it through
+the gateway/ingress — without running pytest. It reuses the helpers in this
+directory (`e2e_helpers.py`, `conftest.py`, `utils.py`) so it stays in sync with
+the suite.
+
+```bash
+NAMESPACE=<cr-namespace> HELM_RELEASE_NAME=<cr-name> KEYCLOAK_NAMESPACE=<keycloak-ns> \
+  ./scripts/seed-test-data.sh --days 7 --source-name dev
+```
+
+Flags: `--days N` (default 3), `--clusters N`, `--source-name NAME`,
+`--org-id ID` (default: the JWT `org_id` claim), `--no-venv`. `oc` must be
+logged in. masu processes the upload asynchronously off Kafka.
+
+### Alternative: the E2E suite
+
+`./scripts/run-pytest.sh --e2e` also seeds as a side effect
+(`test_01_source_registered` + `test_03_upload_data_via_ingress`); run it with
+cleanup disabled to keep the data:
 
 ```bash
 E2E_CLEANUP_BEFORE=false E2E_CLEANUP_AFTER=false \
@@ -345,11 +361,9 @@ NAMESPACE=<cr-namespace> HELM_RELEASE_NAME=<cr-name> KEYCLOAK_NAMESPACE=<keycloa
 ./scripts/run-pytest.sh --e2e --no-ui
 ```
 
-`test_01_source_registered` and `test_03_upload_data_via_ingress` do the actual
-seeding. The downstream steps (`test_02`, `test_04`–`test_09`: provider,
-manifest, masu, summary tables, Kruize) verify processing by querying the Koku
-**database pod** directly and `skip` when the database is external (BYOI) — masu
-still consumes the upload from the Kafka topic and processes it either way.
+The downstream steps (`test_02`, `test_04`–`test_09`) verify processing by
+querying the Koku **database pod** directly and `skip` when the database is
+external (BYOI) — masu still processes the upload off Kafka either way.
 
 ### NISE Data Generation (Default)
 Uses [koku-nise](https://github.com/project-koku/nise) to generate realistic OCP cost data:
