@@ -228,15 +228,25 @@ oc rollout status deployment/cost-management-ui -n cost-byoi
 
 ## 10. Building the RBAC UI with fixes not yet in `insights-rbac-ui`
 
-The RBAC screens come from `RedHatInsights/insights-rbac-ui`, vendored in `koku-ui`
-as the `vendor/insights-rbac-ui` submodule and consumed by `apps/rbac-ui-onprem`
-via `"insights-rbac-frontend": "file:../../vendor/insights-rbac-ui"`.
+**This applies to `rbac-ui-onprem` only.** It is the sole app that vendors an
+upstream repo it can't edit: the RBAC screens come from
+`RedHatInsights/insights-rbac-ui`, pulled in as the `vendor/insights-rbac-ui`
+submodule and consumed via `"insights-rbac-frontend": "file:../../vendor/insights-rbac-ui"`.
+`koku-ui-hccm` (cost management), `koku-ui-ros`, `koku-ui-sources` and the
+`koku-ui-onprem` host shell are first-party source in this monorepo — patch those
+by editing the `.tsx` directly and rebuilding.
 
 `apps/rbac-ui-onprem` has a **module-replacement** hook in `webpack.config.ts`
 (`insightsRbacModuleReplacements` + `resolve.alias`) that swaps individual
 upstream source files for local shims under `src/shims/insights-rbac/` at build
 time — no submodule bump, no upstream edits. This is how on-prem-only fixes and
 not-yet-merged upstream PRs are carried.
+
+(Separately, `libs/onprem-cloud-deps` provides on-prem stubs for the Red Hat
+Cloud Services frontend deps — `@redhat-cloud-services/frontend-components*`,
+`@unleash/proxy-client-react` — aliased in the `koku-ui-onprem` and
+`rbac-ui-onprem` webpack configs so the apps run outside the SaaS Chrome shell.
+That's shared plumbing, not a per-fix patch layer.)
 
 Current shims (COST-8190 / COST-8202, upstream
 [insights-rbac-ui#2411](https://github.com/RedHatInsights/insights-rbac-ui/pull/2411)):
