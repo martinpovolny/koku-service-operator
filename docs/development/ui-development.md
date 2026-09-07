@@ -223,3 +223,58 @@ oc rollout status deployment/cost-management-ui -n cost-byoi
 - nav sidebar links — `components/NavItem.tsx`
 - route switching / microfrontend loading — `components/AppRoutes.tsx`
 - container build spec — `Containerfile`
+
+---
+
+## 10. Building the RBAC UI with fixes not yet in `insights-rbac-ui`
+
+The RBAC screens come from `RedHatInsights/insights-rbac-ui`, vendored in `koku-ui`
+as the `vendor/insights-rbac-ui` submodule and consumed by `apps/rbac-ui-onprem`
+via `"insights-rbac-frontend": "file:../../vendor/insights-rbac-ui"`.
+
+`apps/rbac-ui-onprem` has a **module-replacement** hook in `webpack.config.ts`
+(`insightsRbacModuleReplacements` + `resolve.alias`) that swaps individual
+upstream source files for local shims under `src/shims/insights-rbac/` at build
+time — no submodule bump, no upstream edits. This is how on-prem-only fixes and
+not-yet-merged upstream PRs are carried.
+
+Current shims (COST-8190 / COST-8202, upstream
+[insights-rbac-ui#2411](https://github.com/RedHatInsights/insights-rbac-ui/pull/2411)):
+
+| Shim | Replaces (upstream) | Why |
+|------|---------------------|-----|
+| `browser.tsx` | `src/shared/entry/browser.tsx` | `handle401Error` calls `window.location.reload()` — a loop on-prem behind oauth2-proxy; redirect to re-auth instead (also see COST-8202: set `spec.ui.oauthProxy.cookieRefresh`) |
+| `CostResources.tsx`, `ReviewStep.tsx`, `addRoleSchema.tsx` | `src/v1/features/roles/add-role/{CostResources,ReviewStep,schema}.tsx` | make cost-management resource definitions optional in the add-role wizard |
+| `addRolePermissionsSchema.tsx` | `src/v1/features/roles/add-role-permissions/schema.tsx` | same wizard, permissions step |
+
+### Reproducing the build (colleague, Workflow B)
+
+The shims + `webpack.config.ts` change live on a `koku-ui` branch. From a
+checkout of that branch:
+
+```bash
+git submodule update --init --recursive   # vendor/insights-rbac-ui stays pinned; shims override it
+
+docker buildx build --platform linux/arm64 \
+  -f apps/koku-ui-onprem/Containerfile \
+  -t quay.io/<you>/koku-ui-onprem:rbac-shims-arm64 --push .
+
+oc -n cost-byoi patch cmsc cost-management --type=merge -p \
+  '{"spec":{"ui":{"app":{"image":{"repository":"quay.io/<you>/koku-ui-onprem","tag":"rbac-shims-arm64"}}}}}'
+oc -n cost-byoi rollout status deploy/cost-management-ui
+```
+
+No Containerfile change is needed: it already does `COPY apps/rbac-ui-onprem …`
+(picks up `src/shims/` and `webpack.config.ts`) and `COPY vendor ./vendor`;
+`npm run build:onprem` then applies the aliases.
+
+### Adding another upstream file to a shim
+
+1. Copy the fixed file from the upstream PR to
+   `apps/rbac-ui-onprem/src/shims/insights-rbac/<Name>.tsx`.
+2. Add a `{ match: /…\/path\/to\/file\.tsx$/, replacement: <shim> }` entry to
+   `insightsRbacModuleReplacements` **and** the matching `resolve.alias` line in
+   `apps/rbac-ui-onprem/webpack.config.ts` (the regex accepts both
+   `insights-rbac-frontend` and `insights-rbac-ui` path segments).
+3. Rebuild. Once the upstream PR merges and the submodule is bumped past it,
+   drop the shim and its two config lines.
