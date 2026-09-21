@@ -115,8 +115,9 @@ test: manifests generate fmt vet setup-envtest ## Run tests.
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test $$(go list ./... | grep -v /e2e) -coverprofile cover.out
 
 .PHONY: test-hack
-test-hack: ## Run no-cluster hack/ script tests (demo-preprod, deploy-test-operator).
+test-hack: ## Run no-cluster hack/ script tests (pre-prod demos, deploy-test-operator).
 	./hack/demo-preprod_test.sh
+	./hack/demo-preprod-olm_test.sh
 	./hack/deploy-test-operator_test.sh
 	./hack/ci/e2e_test.sh
 	./scripts/pytest_markexpr_test.sh
@@ -473,4 +474,3 @@ catalog-push: ## Push a catalog image.
 .PHONY: catalog-build-multiplatform
 catalog-build-multiplatform: catalog-render ## Build and push a multiplatform FBC catalog image.
 	$(CONTAINER_TOOL) buildx build --platform linux/amd64,linux/arm64 --push -f $(CATALOG_DIR).Dockerfile -t $(CATALOG_IMG) .
-
