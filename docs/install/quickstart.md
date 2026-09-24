@@ -12,8 +12,8 @@ clock.
 
 ## Install the operator
 
-The operator must run **in the same namespace as the CR**. There is no
-OperatorHub catalog yet. Two current vehicles:
+The operator watches **every** namespace (AllNamespaces). Suggested install
+NS is `cost-onprem`. OwnNamespace is not supported. Two current vehicles:
 
 1. **OLM bundle** (preferred when you have a bundle image) — follow
    [olm-bundle-testing.md](../development/olm-bundle-testing.md)
@@ -22,9 +22,11 @@ OperatorHub catalog yet. Two current vehicles:
    `IMG=<your-image> ./hack/deploy-incluster.sh "$NAMESPACE"` after CRDs/RBAC
    (`./hack/deploy-dev.sh "$NAMESPACE"`).
 
-The generated CSV currently advertises **AllNamespaces** install mode; the
-**runtime** still watches only the install namespace. Put the CR in that
-namespace.
+The generated CSV advertises **AllNamespaces** and the manager watches every
+namespace. Put the CR in the install namespace. Recommended: put the CR in `cost-onprem` (same as the suggested
+operator install NS). BYOI infra may live in other namespaces.
+
+
 
 **Console pitfall:** subscribing through OLM into the application namespace
 with an `OperatorGroup` that sets `targetNamespaces` can fail the CSV with
