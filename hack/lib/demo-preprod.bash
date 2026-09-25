@@ -31,13 +31,16 @@ render_preprod_cr() {
   local dest="${2:?output path}"
   local domain="${3:?cluster apps domain}"
   local issuer="${4:?Keycloak issuer base URL}"
-  python3 - "$src" "$dest" "$domain" "$issuer" <<'PY'
+  local namespace="${5:-cost-byoi}"
+  local name="${6:-cost-management}"
+  python3 - "$src" "$dest" "$domain" "$issuer" "$namespace" "$name" <<'PY'
 import os
 import sys
 from pathlib import Path
 
-src, dest, domain, issuer = sys.argv[1:5]
+src, dest, domain, issuer, namespace, name = sys.argv[1:7]
 text = Path(src).read_text()
+text = text.replace('  name: cost-management\n  namespace: cost-byoi\n', f'  name: {name}\n  namespace: {namespace}\n', 1)
 text = text.replace('clusterDomain: "apps.cluster.example.com"', f'clusterDomain: "{domain}"')
 old_url = '      url: "http://keycloak-service.keycloak.svc.cluster.local:8080"'
 new_block = (

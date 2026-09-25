@@ -58,8 +58,11 @@ render_preprod_cr \
   "${ROOT}/config/samples/byoi/app/costmanagementserviceconfig.yaml" \
   "$tmp" \
   "apps.example.test" \
-  "https://keycloak-keycloak.apps.example.test"
+  "https://keycloak-keycloak.apps.example.test" \
+  "catalog-demo" \
+  "catalog-cost"
 cr="$(cat "$tmp")"
+assert_contains "$cr" $'  name: catalog-cost\n  namespace: catalog-demo' "CMSC name and namespace patched"
 assert_contains "$cr" 'clusterDomain: "apps.example.test"' "clusterDomain patched"
 assert_not_contains "$cr" "apps.cluster.example.com" "placeholder domain gone"
 assert_contains "$cr" 'issuerURL: "https://keycloak-keycloak.apps.example.test"' "issuerURL set"
