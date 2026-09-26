@@ -744,7 +744,7 @@ display_summary() {
     echo ""
     echo_info "Next Steps:"
     echo_info "  1. (Optional) Verify Kafka cluster: kubectl get kafka $KAFKA_CLUSTER_NAME -n $KAFKA_NAMESPACE"
-    echo_info "  2. Deploy Cost Management Service configuration: ./install-cmsc.sh"
+    echo_info "  2. Deploy Cost Management Service configuration: ./scripts/install-cmsc.sh"
     echo ""
 }
 

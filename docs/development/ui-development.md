@@ -254,8 +254,14 @@ To test non-admin user views (like `viewer`) without running through the full OA
 CLIENT_SECRET=$(oc get secret keycloak-client-secret-cost-management-ui \
   -n keycloak -o jsonpath='{.data.CLIENT_SECRET}' | base64 -d)
 
+KEYCLOAK_CA_BUNDLE="${KEYCLOAK_CA_BUNDLE:-${TMPDIR:-/tmp}/openshift-ingress-ca.crt}"
+if [[ ! -s "$KEYCLOAK_CA_BUNDLE" ]]; then
+  oc get configmap default-ingress-cert -n openshift-config-managed \
+    -o jsonpath='{.data.ca-bundle\.crt}' > "$KEYCLOAK_CA_BUNDLE"
+fi
+
 # Use username=viewer / password=viewer (or admin / admin)
-export API_TOKEN=$(curl -sk -X POST \
+export API_TOKEN=$(curl --fail --silent --show-error --cacert "$KEYCLOAK_CA_BUNDLE" -X POST \
   https://keycloak-keycloak.apps-crc.testing/realms/kubernetes/protocol/openid-connect/token \
   -d "grant_type=password" \
   -d "client_id=cost-management-ui" \
@@ -326,6 +332,7 @@ spec:
 '
 
 # 3. Wait for rollout
+kubectl rollout restart deployment/cost-management-koku-api -n cost-byoi
 kubectl rollout status deployment/cost-management-koku-api -n cost-byoi
 ```
 
