@@ -117,9 +117,11 @@ logs `Tenant does not exist` until a source is registered.
 > This caused the OpenShift cost views to hang in an empty or "Still processing data"
 > state for valid viewers.
 > In on-prem, `SAFE_METHODS` (`GET`, `HEAD`, `OPTIONS`) on `/sources/` are relaxed
-> so that any user with an org-wide wildcard read (`"*"`) on any provider resource
-> type is permitted to list sources, while write actions (`POST`, `PATCH`, `DELETE`)
-> remain strictly `403`.
+> so that any user with an org-wide wildcard read (`"*"`) on one of the OpenShift
+> provider resource types (`openshift.cluster`, `openshift.node`, or
+> `openshift.project`) is permitted to list sources. This does not cover
+> non-OpenShift provider types such as `aws.account`; write actions (`POST`,
+> `PATCH`, `DELETE`) remain strictly `403`.
 
 ### Gate B — data presence (`has_data` / `current_month_data`)
 `apps/koku-ui-hccm/src/routes/utils/providers.ts`. While `has_data: false` the UI

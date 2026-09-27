@@ -26,6 +26,8 @@
 
 set -e  # Exit on any error
 
+INSTALL_CMSC_CMD="$(dirname "${BASH_SOURCE[0]}")/install-cmsc.sh"
+
 # Color codes for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -744,7 +746,7 @@ display_summary() {
     echo ""
     echo_info "Next Steps:"
     echo_info "  1. (Optional) Verify Kafka cluster: kubectl get kafka $KAFKA_CLUSTER_NAME -n $KAFKA_NAMESPACE"
-    echo_info "  2. Deploy Cost Management Service configuration: ./scripts/install-cmsc.sh"
+    echo_info "  2. Deploy Cost Management Service configuration: ${INSTALL_CMSC_CMD}"
     echo ""
 }
 
