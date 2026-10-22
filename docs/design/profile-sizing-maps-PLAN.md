@@ -48,7 +48,7 @@
 | 4. Ingress / gateway knobs + Envoy HCM parity | ✅ done | 0a4dc94 | review clean; duration pattern + Go→Envoy "Ns" normalisation |
 | 5. `status.profile` + printer column | ✅ done | 3e63174 | review clean |
 | 6. Samples + e2e helpers | ✅ done | 1821a55, 05c0726 | review clean after 1 fix round (sample listener override must not downgrade `large` memory) |
-| 7. Perf harness uses `spec.profile` | ☐ todo | | |
+| 7. Perf harness uses `spec.profile` | ✅ done | 89cdb40, bd709cc | review clean after 1 fix round (wait for status.observedGeneration + status.profile before verifying); polling untested until Task 10 |
 | 8. Docs | ☐ todo | | |
 | 9. Final verification + PR | ☐ todo | | Steps 6-7 (push/PR/Jira) run only after Task 10 and user OK |
 | 10. Cluster Bot end-to-end validation | ☐ todo | | requested by user 2026-10-22; Cluster Bot 3 masters + 3 workers (CRC fallback) |
