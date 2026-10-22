@@ -18,10 +18,7 @@ import (
 func KokuAPIDeployment(cfg *costv1alpha1.CostManagementServiceConfig) *appsv1.Deployment {
 	spec := cfg.Spec.CostManagement.API
 	image, _ := KokuImage(cfg)
-	replicas := spec.Replicas
-	if replicas == 0 {
-		replicas = 1
-	}
+	replicas := ProfileReplicas(cfg, WorkloadKokuAPI, spec.Replicas)
 
 	const containerName = "koku-api"
 
@@ -84,10 +81,7 @@ func MasuDeployment(cfg *costv1alpha1.CostManagementServiceConfig) *appsv1.Deplo
 	if !ok {
 		image, _ = KokuImage(cfg)
 	}
-	replicas := spec.Replicas
-	if replicas == 0 {
-		replicas = 1
-	}
+	replicas := ProfileReplicas(cfg, WorkloadMasu, spec.Replicas)
 
 	const containerName = "masu"
 
@@ -144,10 +138,7 @@ func MasuService(cfg *costv1alpha1.CostManagementServiceConfig) *corev1.Service 
 func ListenerDeployment(cfg *costv1alpha1.CostManagementServiceConfig) *appsv1.Deployment {
 	spec := cfg.Spec.CostManagement.Listener
 	image, _ := KokuImage(cfg)
-	replicas := spec.Replicas
-	if replicas == 0 {
-		replicas = 2
-	}
+	replicas := ProfileReplicas(cfg, WorkloadListener, spec.Replicas)
 
 	env := KokuCommonEnv(cfg)
 	env = append(env,
@@ -207,7 +198,7 @@ const celeryWorkerMetricsPort = int32(9000)
 // Zero-replica workers stay unscrapeable (no metrics port / scrape label).
 func CeleryWorkerDeployment(cfg *costv1alpha1.CostManagementServiceConfig, queue string, spec costv1alpha1.CeleryWorkerSpec) *appsv1.Deployment {
 	image, _ := KokuImage(cfg)
-	replicas := spec.Replicas
+	replicas := ProfileReplicas(cfg, CeleryWorkload(queue), spec.Replicas)
 	concurrency := spec.Concurrency
 	if concurrency == 0 {
 		concurrency = 5

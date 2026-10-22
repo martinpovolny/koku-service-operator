@@ -199,3 +199,86 @@ func replicasDefault(t *testing.T, workers *apiextensionsv1.JSONSchemaProps, que
 	}
 	return int64(asFloat)
 }
+
+// noDefaultReplicaPaths are the spec.* paths whose replica field has no CRD default, so
+// the operator can distinguish "unset" (profile value) from an explicit value.
+var noDefaultReplicaPaths = [][]string{
+	{"spec", "costManagement", "api", "replicas"},
+	{"spec", "costManagement", "masu", "replicas"},
+	{"spec", "costManagement", "listener", "replicas"},
+	{"spec", "costManagement", "celery", "workers", "default", "replicas"},
+	{"spec", "costManagement", "celery", "workers", "priority", "replicas"},
+	{"spec", "costManagement", "celery", "workers", "summary", "replicas"},
+	{"spec", "costManagement", "celery", "workers", "ocp", "replicas"},
+	{"spec", "costManagement", "celery", "workers", "costModel", "replicas"},
+	{"spec", "costManagement", "celery", "workers", "refresh", "replicas"},
+	{"spec", "costManagement", "celery", "workers", "download", "replicas"},
+	{"spec", "rbac", "api", "replicas"},
+	{"spec", "rbac", "worker", "replicas"},
+	{"spec", "ros", "processor", "replicas"},
+	{"spec", "kruize", "replicas"},
+	{"spec", "auth", "envoy", "replicas"},
+	{"spec", "ui", "replicaCount"},
+}
+
+func loadStoredSchema(t *testing.T, path string) *apiextensionsv1.JSONSchemaProps {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read CRD %s: %v", path, err)
+	}
+	var crd apiextensionsv1.CustomResourceDefinition
+	if err := yaml.Unmarshal(data, &crd); err != nil {
+		t.Fatalf("unmarshal CRD: %v", err)
+	}
+	schema := storedOpenAPIV3Schema(&crd)
+	if schema == nil {
+		t.Fatal("missing openAPIV3Schema on stored CRD version")
+	}
+	return schema
+}
+
+func TestCRDReplicaFieldsHaveNoDefault(t *testing.T) {
+	t.Parallel()
+
+	// Only the generated config CRD: bundle/manifests is regenerated at release
+	// time (make bundle) and already lags config/crd (e.g. spec.profile).
+	for _, install := range crdInstallPaths[:1] {
+		t.Run(install.name, func(t *testing.T) {
+			t.Parallel()
+			schema := loadStoredSchema(t, install.path)
+			for _, p := range noDefaultReplicaPaths {
+				f := navigateSchema(t, schema, p...)
+				if f.Default != nil {
+					t.Errorf("%s has CRD default %s, want none", strings.Join(p, "."), string(f.Default.Raw))
+				}
+				if f.Minimum == nil || *f.Minimum != 0 {
+					t.Errorf("%s minimum = %v, want 0", strings.Join(p, "."), f.Minimum)
+				}
+			}
+			// SaaS queues keep their default of 0.
+			workers := navigateSchema(t, schema, "spec", "costManagement", "celery", "workers")
+			for _, field := range saasCeleryWorkerFields {
+				if got := replicasDefault(t, workers, field); got != 0 {
+					t.Errorf("workers.%s.replicas default = %d, want 0", field, got)
+				}
+			}
+		})
+	}
+}
+
+func TestCRDKruizeReplicasMaximumOne(t *testing.T) {
+	t.Parallel()
+
+	// Only the generated config CRD: bundle/manifests is regenerated at release
+	// time (make bundle) and already lags config/crd (e.g. spec.profile).
+	for _, install := range crdInstallPaths[:1] {
+		t.Run(install.name, func(t *testing.T) {
+			t.Parallel()
+			f := navigateSchema(t, loadStoredSchema(t, install.path), "spec", "kruize", "replicas")
+			if f.Maximum == nil || *f.Maximum != 1 {
+				t.Errorf("spec.kruize.replicas maximum = %v, want 1", f.Maximum)
+			}
+		})
+	}
+}

@@ -160,10 +160,7 @@ func EnvoyDeployment(cfg *costv1alpha1.CostManagementServiceConfig) *appsv1.Depl
 
 	image, _ := ImageRef(cfg.Spec.Auth.Envoy.Image)
 
-	replicas := cfg.Spec.Auth.Envoy.Replicas
-	if replicas == 0 {
-		replicas = 2
-	}
+	replicas := ProfileReplicas(cfg, WorkloadEnvoy, cfg.Spec.Auth.Envoy.Replicas)
 
 	falseVal := false
 	init := CACombineInitContainer(cfg)

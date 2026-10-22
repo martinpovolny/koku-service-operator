@@ -6,6 +6,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 
 	costv1alpha1 "github.com/project-koku/koku-service-operator/api/v1alpha1"
 )
@@ -105,7 +106,7 @@ func testCfg() *costv1alpha1.CostManagementServiceConfig {
 					Audiences: []string{"cost-management-operator", "cost-management-ui"},
 				},
 				Envoy: costv1alpha1.EnvoySpec{
-					Replicas: 2,
+					Replicas: ptr.To[int32](2),
 					Image: costv1alpha1.ImageSpec{
 						Repository: "registry.redhat.io/openshift-service-mesh/proxyv2-rhel9",
 						Tag:        "2.6",
@@ -635,5 +636,14 @@ func TestEnvoyYAMLEscapesColonSpace(t *testing.T) {
 			}
 			assertValidYAMLWithStringAudiences(t, out)
 		})
+	}
+}
+
+func TestEnvoyDeployment_DefaultReplicas(t *testing.T) {
+	cfg := testCfg()
+	cfg.Spec.Auth.Envoy.Replicas = nil
+	d := EnvoyDeployment(cfg)
+	if d.Spec.Replicas == nil || *d.Spec.Replicas != 2 {
+		t.Errorf("replicas = %v, want 2", d.Spec.Replicas)
 	}
 }

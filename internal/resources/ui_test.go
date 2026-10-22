@@ -10,6 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/utils/ptr"
 
 	costv1alpha1 "github.com/project-koku/koku-service-operator/api/v1alpha1"
 )
@@ -18,7 +19,7 @@ func uiTestCfg() *costv1alpha1.CostManagementServiceConfig {
 	cfg := testCfg()
 	cfg.Status.DiscoveredConfig = &costv1alpha1.DiscoveredConfig{ClusterDomain: "apps.example.com"}
 	cfg.Spec.UI = costv1alpha1.UIConfig{
-		ReplicaCount: 1,
+		ReplicaCount: ptr.To[int32](1),
 		OAuthProxy: costv1alpha1.OAuthProxySpec{
 			Image: costv1alpha1.ImageSpec{
 				Repository: "registry.redhat.io/rhceph/oauth2-proxy-rhel9",

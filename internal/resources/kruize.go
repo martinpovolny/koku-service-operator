@@ -209,10 +209,7 @@ func KruizeDeployment(cfg *costv1alpha1.CostManagementServiceConfig) *appsv1.Dep
 	image := spec.Image.Repository + ":" + spec.Image.Tag
 	selLabels := SelectorLabels(cfg, "ros-optimization")
 	allLabels := Labels(cfg, "ros-optimization")
-	replicas := spec.Replicas
-	if replicas == 0 {
-		replicas = 1
-	}
+	replicas := ProfileReplicas(cfg, WorkloadKruize, spec.Replicas)
 
 	cfgVol, cfgMount := kruizeConfigVolumeAndMount(cfg)
 	initEnv := kruizeEnv(cfg, true)

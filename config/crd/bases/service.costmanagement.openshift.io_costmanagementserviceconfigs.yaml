@@ -71,8 +71,8 @@ spec:
                         - tag
                         type: object
                       replicas:
-                        default: 2
                         format: int32
+                        minimum: 0
                         type: integer
                       resources:
                         description: ResourceRequirements describes the compute resource
@@ -357,8 +357,8 @@ spec:
                         - tag
                         type: object
                       replicas:
-                        default: 1
                         format: int32
+                        minimum: 0
                         type: integer
                       resources:
                         description: ResourceRequirements describes the compute resource
@@ -432,8 +432,8 @@ spec:
                                 format: int32
                                 type: integer
                               replicas:
-                                default: 1
                                 format: int32
+                                minimum: 0
                                 type: integer
                               resources:
                                 description: ResourceRequirements describes the compute
@@ -504,8 +504,8 @@ spec:
                                 format: int32
                                 type: integer
                               replicas:
-                                default: 1
                                 format: int32
+                                minimum: 0
                                 type: integer
                               resources:
                                 description: ResourceRequirements describes the compute
@@ -576,8 +576,8 @@ spec:
                                 format: int32
                                 type: integer
                               replicas:
-                                default: 1
                                 format: int32
+                                minimum: 0
                                 type: integer
                               resources:
                                 description: ResourceRequirements describes the compute
@@ -722,8 +722,8 @@ spec:
                                 format: int32
                                 type: integer
                               replicas:
-                                default: 1
                                 format: int32
+                                minimum: 0
                                 type: integer
                               resources:
                                 description: ResourceRequirements describes the compute
@@ -794,8 +794,8 @@ spec:
                                 format: int32
                                 type: integer
                               replicas:
-                                default: 1
                                 format: int32
+                                minimum: 0
                                 type: integer
                               resources:
                                 description: ResourceRequirements describes the compute
@@ -866,8 +866,8 @@ spec:
                                 format: int32
                                 type: integer
                               replicas:
-                                default: 1
                                 format: int32
+                                minimum: 0
                                 type: integer
                               resources:
                                 description: ResourceRequirements describes the compute
@@ -1088,8 +1088,8 @@ spec:
                                 format: int32
                                 type: integer
                               replicas:
-                                default: 1
                                 format: int32
+                                minimum: 0
                                 type: integer
                               resources:
                                 description: ResourceRequirements describes the compute
@@ -1173,8 +1173,8 @@ spec:
                           type: string
                         type: object
                       replicas:
-                        default: 2
                         format: int32
+                        minimum: 0
                         type: integer
                       resources:
                         description: ResourceRequirements describes the compute resource
@@ -1262,8 +1262,8 @@ spec:
                         - tag
                         type: object
                       replicas:
-                        default: 1
                         format: int32
+                        minimum: 0
                         type: integer
                       resources:
                         description: ResourceRequirements describes the compute resource
@@ -1767,8 +1767,9 @@ spec:
                         type: object
                     type: object
                   replicas:
-                    default: 1
                     format: int32
+                    maximum: 1
+                    minimum: 0
                     type: integer
                   resources:
                     description: ResourceRequirements describes the compute resource
@@ -1942,8 +1943,8 @@ spec:
                   api:
                     properties:
                       replicas:
-                        default: 1
                         format: int32
+                        minimum: 0
                         type: integer
                       resources:
                         description: ResourceRequirements describes the compute resource
@@ -2116,8 +2117,8 @@ spec:
                   worker:
                     properties:
                       replicas:
-                        default: 1
                         format: int32
+                        minimum: 0
                         type: integer
                       resources:
                         description: ResourceRequirements describes the compute resource
@@ -2412,8 +2413,8 @@ spec:
                         default: INFO
                         type: string
                       replicas:
-                        default: 1
                         format: int32
+                        minimum: 0
                         type: integer
                       resources:
                         description: ResourceRequirements describes the compute resource
@@ -2746,8 +2747,8 @@ spec:
                         type: object
                     type: object
                   replicaCount:
-                    default: 1
                     format: int32
+                    minimum: 0
                     type: integer
                 type: object
             type: object

@@ -148,10 +148,7 @@ func UIDeployment(cfg *costv1alpha1.CostManagementServiceConfig) *appsv1.Deploym
 	spec := cfg.Spec.UI
 	selLabels := SelectorLabels(cfg, "ui")
 	allLabels := Labels(cfg, "ui")
-	replicas := spec.ReplicaCount
-	if replicas == 0 {
-		replicas = 1
-	}
+	replicas := ProfileReplicas(cfg, WorkloadUIOAuthProxy, spec.ReplicaCount)
 
 	issuerURL := KeycloakIssuerURL(cfg)
 	domain := clusterDomain(cfg)

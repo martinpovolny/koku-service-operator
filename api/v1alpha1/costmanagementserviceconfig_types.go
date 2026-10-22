@@ -307,8 +307,8 @@ type AuthConfig struct {
 
 type EnvoySpec struct {
 	Image ImageSpec `json:"image,omitempty"`
-	// +kubebuilder:default:=2
-	Replicas  int32                       `json:"replicas,omitempty"`
+	// +kubebuilder:validation:Minimum=0
+	Replicas  *int32                      `json:"replicas,omitempty"`
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
 }
 
@@ -366,8 +366,8 @@ type RBACConfig struct {
 }
 
 type RBACComponentSpec struct {
-	// +kubebuilder:default:=1
-	Replicas  int32                       `json:"replicas,omitempty"`
+	// +kubebuilder:validation:Minimum=0
+	Replicas  *int32                      `json:"replicas,omitempty"`
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
 }
 
@@ -407,8 +407,9 @@ type IngressConfig struct {
 // -----------------------------------------------------------------------------
 
 type KruizeConfig struct {
-	// +kubebuilder:default:=1
-	Replicas   int32                       `json:"replicas,omitempty"`
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=1
+	Replicas   *int32                      `json:"replicas,omitempty"`
 	Image      ImageSpec                   `json:"image,omitempty"`
 	Resources  corev1.ResourceRequirements `json:"resources,omitempty"`
 	Partitions KruizePartitionsSpec        `json:"partitions,omitempty"`
@@ -460,8 +461,8 @@ type ROSAPISpec struct {
 }
 
 type ROSProcessorSpec struct {
-	// +kubebuilder:default:=1
-	Replicas  int32                       `json:"replicas,omitempty"`
+	// +kubebuilder:validation:Minimum=0
+	Replicas  *int32                      `json:"replicas,omitempty"`
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
 	// +kubebuilder:default:=INFO
 	LogLevel string `json:"logLevel,omitempty"`
@@ -513,8 +514,8 @@ type KokuAPISpec struct {
 	// +kubebuilder:default:=true
 	Enabled *bool     `json:"enabled,omitempty"`
 	Image   ImageSpec `json:"image,omitempty"`
-	// +kubebuilder:default:=1
-	Replicas  int32                       `json:"replicas,omitempty"`
+	// +kubebuilder:validation:Minimum=0
+	Replicas  *int32                      `json:"replicas,omitempty"`
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
 	// Environment variable overrides merged over operator-managed defaults.
 	// Must not contain secret values — use Secret references for credentials.
@@ -525,8 +526,8 @@ type MasuSpec struct {
 	// +kubebuilder:default:=true
 	Enabled *bool     `json:"enabled,omitempty"`
 	Image   ImageSpec `json:"image,omitempty"`
-	// +kubebuilder:default:=1
-	Replicas  int32                       `json:"replicas,omitempty"`
+	// +kubebuilder:validation:Minimum=0
+	Replicas  *int32                      `json:"replicas,omitempty"`
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
 	Env       map[string]string           `json:"env,omitempty"`
 }
@@ -534,8 +535,8 @@ type MasuSpec struct {
 type ListenerSpec struct {
 	// +kubebuilder:default:=true
 	Enabled *bool `json:"enabled,omitempty"`
-	// +kubebuilder:default:=2
-	Replicas  int32                       `json:"replicas,omitempty"`
+	// +kubebuilder:validation:Minimum=0
+	Replicas  *int32                      `json:"replicas,omitempty"`
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
 	Env       map[string]string           `json:"env,omitempty"`
 }
@@ -559,8 +560,8 @@ type CeleryWorkersSpec struct {
 }
 
 type CeleryWorkerSpec struct {
-	// +kubebuilder:default:=1
-	Replicas int32 `json:"replicas,omitempty"`
+	// +kubebuilder:validation:Minimum=0
+	Replicas *int32 `json:"replicas,omitempty"`
 	// +kubebuilder:default:=5
 	Concurrency int32                       `json:"concurrency,omitempty"`
 	Resources   corev1.ResourceRequirements `json:"resources,omitempty"`
@@ -578,7 +579,11 @@ type SaaSCeleryWorkerSpec struct {
 
 // CeleryWorkerSpec returns the shared worker shape used by resource builders.
 func (s SaaSCeleryWorkerSpec) CeleryWorkerSpec() CeleryWorkerSpec {
-	return CeleryWorkerSpec(s)
+	return CeleryWorkerSpec{
+		Replicas:    new(s.Replicas),
+		Concurrency: s.Concurrency,
+		Resources:   s.Resources,
+	}
 }
 
 // -----------------------------------------------------------------------------
@@ -586,8 +591,8 @@ func (s SaaSCeleryWorkerSpec) CeleryWorkerSpec() CeleryWorkerSpec {
 // -----------------------------------------------------------------------------
 
 type UIConfig struct {
-	// +kubebuilder:default:=1
-	ReplicaCount int32          `json:"replicaCount,omitempty"`
+	// +kubebuilder:validation:Minimum=0
+	ReplicaCount *int32         `json:"replicaCount,omitempty"`
 	OAuthProxy   OAuthProxySpec `json:"oauthProxy,omitempty"`
 	App          UIAppSpec      `json:"app,omitempty"`
 	// OAuthClientSecretRef names a Secret in the CR namespace with keys

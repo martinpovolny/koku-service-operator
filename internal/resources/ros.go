@@ -311,10 +311,7 @@ func ROSProcessorDeployment(cfg *costv1alpha1.CostManagementServiceConfig) *apps
 	image := cfg.Spec.ROS.Image.Repository + ":" + cfg.Spec.ROS.Image.Tag
 	selLabels := SelectorLabels(cfg, "ros-processor")
 	allLabels := Labels(cfg, "ros-processor")
-	replicas := cfg.Spec.ROS.Processor.Replicas
-	if replicas == 0 {
-		replicas = 1
-	}
+	replicas := ProfileReplicas(cfg, WorkloadROSProcessor, cfg.Spec.ROS.Processor.Replicas)
 	falseVal := false
 
 	cdappVol, cdappMount := cdappVolumeAndMount(cfg)
