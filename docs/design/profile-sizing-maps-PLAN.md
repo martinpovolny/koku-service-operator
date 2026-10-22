@@ -46,7 +46,7 @@
 | 2. Replica pointers + replica wiring | ✅ done | 0743ca3, 943b82f | review clean after 1 fix round (OLM bundle regen); e2e has compile-only stopgap until T6 |
 | 3. Resource wiring in builders | ✅ done | 6fce0e9 | review clean |
 | 4. Ingress / gateway knobs + Envoy HCM parity | ✅ done | 0a4dc94 | review clean; duration pattern + Go→Envoy "Ns" normalisation |
-| 5. `status.profile` + printer column | ☐ todo | | |
+| 5. `status.profile` + printer column | ✅ done | 3e63174 | review clean |
 | 6. Samples + e2e helpers | ☐ todo | | |
 | 7. Perf harness uses `spec.profile` | ☐ todo | | |
 | 8. Docs | ☐ todo | | |
