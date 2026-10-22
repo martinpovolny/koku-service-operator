@@ -43,7 +43,7 @@
 | Task | Status | Commit / PR | Notes |
 |------|--------|-------------|-------|
 | 1. Profile enum + sizing table | ✅ done | 5626b2a, 9fdec8c | review clean; prod sample enum bumped ha→large early (T6 finishes it) |
-| 2. Replica pointers + replica wiring | ☐ todo | | |
+| 2. Replica pointers + replica wiring | ✅ done | 0743ca3, 943b82f | review clean after 1 fix round (OLM bundle regen); e2e has compile-only stopgap until T6 |
 | 3. Resource wiring in builders | ☐ todo | | |
 | 4. Ingress / gateway knobs + Envoy HCM parity | ☐ todo | | |
 | 5. `status.profile` + printer column | ☐ todo | | |
@@ -74,6 +74,7 @@ Newest last. Each entry: date · decision · why · source.
 | D14 | 2026-10-22 | BYOI DB/Kafka tier sizing stays docs-only; bundled DB/Valkey unchanged | Production is BYOI | Claude's call (CLAUDE.md) |
 | D15 | 2026-10-22 | Design and plan live in `docs/design/` | Repo convention over skill default path | Claude's call |
 | D16 | 2026-10-22 | No extra CEL guards on overrides (Kruize CPU ≥ 2000m, upload caps, timeout floors) | Overrides are the customer's call | Claude's call |
+| D17 | 2026-10-22 | Every API-changing task regenerates the OLM bundle (`make bundle IMAGE_SHA=<committed containerImage>`) | CI `bundle-validate` regenerates and fails on drift; bundle CRD carries `spec.profile` | Claude's call (found during Task 2) |
 
 ---
 
