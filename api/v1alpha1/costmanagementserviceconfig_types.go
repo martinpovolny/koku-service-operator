@@ -47,16 +47,21 @@ const (
 // Profile
 // -----------------------------------------------------------------------------
 
-// Profile selects a pre-defined resource sizing tier.
-// Currently applies to UI containers only; other workloads use per-component spec.*.resources fields.
-// +kubebuilder:validation:Enum=standard;ha
+// Profile selects a validated workload sizing tier. Values come from the
+// Cost On-Prem performance testing (see docs/performance/sizing-guide.md).
+// Explicit per-component fields in the spec always override profile values.
+// +kubebuilder:validation:Enum=small;medium;large;xlarge
 type Profile string
 
 const (
-	// ProfileStandard is the default sizing tier (chart-equivalent UI footprint).
-	ProfileStandard Profile = "standard"
-	// ProfileHA raises UI CPU/memory defaults for a redundant footprint.
-	ProfileHA Profile = "ha"
+	// ProfileSmall is the default sizing tier (chart values.yaml).
+	ProfileSmall Profile = "small"
+	// ProfileMedium mirrors the chart values-medium.yaml overlay.
+	ProfileMedium Profile = "medium"
+	// ProfileLarge mirrors the chart values-large.yaml overlay.
+	ProfileLarge Profile = "large"
+	// ProfileXLarge mirrors the chart values-xlarge.yaml overlay.
+	ProfileXLarge Profile = "xlarge"
 )
 
 // -----------------------------------------------------------------------------
@@ -653,9 +658,9 @@ type MonitoringConfig struct {
 // is omitted, so the required-url rule lives here as well.
 // +kubebuilder:validation:XValidation:rule="has(self.auth) && has(self.auth.keycloak) && has(self.auth.keycloak.url) && size(self.auth.keycloak.url) > 0",message="spec.auth.keycloak.url is required (JWKS fetch URL); operator does not auto-detect Keycloak"
 type CostManagementServiceConfigSpec struct {
-	// Profile selects a pre-defined resource sizing tier.
-	// Currently applies to UI containers only; other workloads use per-component spec.*.resources fields.
-	// +kubebuilder:default:=standard
+	// Profile selects a validated workload sizing tier (small, medium, large, xlarge).
+	// Explicit per-component fields in the spec always override profile values.
+	// +kubebuilder:default:=small
 	Profile        Profile              `json:"profile,omitempty"`
 	Global         GlobalConfig         `json:"global,omitempty"`
 	Database       DatabaseConfig       `json:"database,omitempty"`
