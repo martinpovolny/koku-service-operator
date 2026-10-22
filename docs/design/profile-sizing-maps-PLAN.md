@@ -50,7 +50,8 @@
 | 6. Samples + e2e helpers | ☐ todo | | |
 | 7. Perf harness uses `spec.profile` | ☐ todo | | |
 | 8. Docs | ☐ todo | | |
-| 9. Final verification + PR | ☐ todo | | |
+| 9. Final verification + PR | ☐ todo | | Steps 6-7 (push/PR/Jira) run only after Task 10 and user OK |
+| 10. CRC end-to-end validation | ☐ todo | | requested by user 2026-10-22; needs CRC access details |
 
 ## Decision log
 
@@ -75,6 +76,7 @@ Newest last. Each entry: date · decision · why · source.
 | D15 | 2026-10-22 | Design and plan live in `docs/design/` | Repo convention over skill default path | Claude's call |
 | D16 | 2026-10-22 | No extra CEL guards on overrides (Kruize CPU ≥ 2000m, upload caps, timeout floors) | Overrides are the customer's call | Claude's call |
 | D17 | 2026-10-22 | Every API-changing task regenerates the OLM bundle (`make bundle IMAGE_SHA=<committed containerImage>`) | CI `bundle-validate` regenerates and fails on drift; bundle CRD carries `spec.profile` | Claude's call (found during Task 2) |
+| D18 | 2026-10-22 | Validate the whole branch on a CRC instance before opening the PR | Unit/envtest can't prove scheduling, rollouts or real uploads | User |
 
 ---
 
@@ -382,3 +384,20 @@ git commit -am "[COST-8095] Profile-driven upload limits and gateway timeouts; E
 - [ ] **Step 5:** LSP `incomingCalls` on every new exported function in `profiles.go` — each has ≥1 non-test caller (dead-code check, CLAUDE.md).
 - [ ] **Step 6:** Push branch; open PR `[COST-8095] Implement spec.profile sizing maps` with summary, link to design + this plan, decision log highlights, behaviour changes (spec §5.1 "Behaviour changes"), test evidence.
 - [ ] **Step 7:** Update Progress row 9 with PR link; add a Jira comment on COST-8095 linking the PR.
+
+---
+
+### Task 10: CRC end-to-end validation
+
+Runs after Task 9 Steps 1-5 and before Task 9 Steps 6-7. Follow
+`docs/development/crc-testing.md` for deploying the branch build to CRC.
+Record every check's command and observed output in this task's notes.
+
+- [ ] **Step 1:** Get CRC access from the user (kubeconfig/context); confirm `oc whoami` and that BYOI fixtures are up (`config/samples/byoi/README.md`).
+- [ ] **Step 2:** Deploy operator from this branch; apply a CR **without** `spec.profile`. Expect `status.profile: small`, `oc get cmsc` shows `Profile` column; every managed pod has requests+limits per spec §5.1; celery `ocp`/`summary` 2 replicas, `download`/`refresh` 0, listener 2, envoy 2.
+- [ ] **Step 3:** Patch `spec.profile: large`. Expect listener/ocp/summary roll to 3 (ROS processor 3 only if ROS enabled), listener mem 2Gi/4Gi, ingress mem 2Gi/4Gi, ingress env `INGRESS_DEFAULTMAXSIZE=524288000` / `INGRESS_MAXUPLOADMEM=134217728`, route annotation `haproxy.router.openshift.io/timeout: 600s`, Envoy config ingress route `600s`/`300s`, HCM without `request_timeout`, Envoy pod rolled (config-hash changed). If CRC can't schedule `large`, verify rendered Deployment specs instead and note it.
+- [ ] **Step 4:** Set explicit `spec.costManagement.listener.resources`; switch profile `large → medium`; explicit block survives unchanged, other workloads move to medium.
+- [ ] **Step 5:** `oc scale deploy/<celery-worker-ocp> --replicas=5`; within one reconcile / ≤5 min drift requeue it returns to the profile value.
+- [ ] **Step 6:** Upload a payload through the gateway (existing ingestion smoke / pytest ingestion path) and confirm it's processed.
+- [ ] **Step 7:** Record results here, update Progress row 10, commit `[COST-8095] Plan: CRC validation results`.
+
