@@ -474,6 +474,16 @@ func (in *ImageSpec) DeepCopy() *ImageSpec {
 func (in *IngressConfig) DeepCopyInto(out *IngressConfig) {
 	*out = *in
 	out.Image = in.Image
+	if in.MaxUploadSize != nil {
+		in, out := &in.MaxUploadSize, &out.MaxUploadSize
+		*out = new(int64)
+		**out = **in
+	}
+	if in.MaxMemory != nil {
+		in, out := &in.MaxMemory, &out.MaxMemory
+		*out = new(int64)
+		**out = **in
+	}
 	in.Resources.DeepCopyInto(&out.Resources)
 }
 

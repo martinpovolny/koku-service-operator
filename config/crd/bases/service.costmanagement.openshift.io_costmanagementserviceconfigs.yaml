@@ -70,6 +70,19 @@ spec:
                         - repository
                         - tag
                         type: object
+                      ingressPerTryTimeout:
+                        description: |-
+                          IngressPerTryTimeout overrides the Envoy per-try (retry) timeout for
+                          /api/ingress/. Go duration format. Unset uses the sizing profile value.
+                        pattern: ^([0-9]+(\.[0-9]+)?(ms|s|m|h))+$
+                        type: string
+                      ingressTimeout:
+                        description: |-
+                          IngressTimeout overrides the Envoy route timeout for /api/ingress/
+                          (uploads). Go duration format, e.g. "180s" or "10m". Unset uses the
+                          sizing profile value.
+                        pattern: ^([0-9]+(\.[0-9]+)?(ms|s|m|h))+$
+                        type: string
                       replicas:
                         format: int32
                         minimum: 0
@@ -1567,10 +1580,18 @@ spec:
                     - repository
                     - tag
                     type: object
-                  maxUploadSize:
-                    default: 104857600
-                    description: Maximum upload size in bytes.
+                  maxMemory:
+                    description: |-
+                      MaxMemory is the in-memory upload buffer in bytes (INGRESS_MAXUPLOADMEM).
+                      Unset uses the sizing profile value.
                     format: int64
+                    minimum: 1
+                    type: integer
+                  maxUploadSize:
+                    description: Maximum upload size in bytes. Unset uses the sizing
+                      profile value.
+                    format: int64
+                    minimum: 1
                     type: integer
                   resources:
                     description: ResourceRequirements describes the compute resource

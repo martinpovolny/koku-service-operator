@@ -647,3 +647,83 @@ func TestEnvoyDeployment_DefaultReplicas(t *testing.T) {
 		t.Errorf("replicas = %v, want 2", d.Spec.Replicas)
 	}
 }
+
+func envoyHCM(t *testing.T, cfg *costv1alpha1.CostManagementServiceConfig) map[string]any {
+	t.Helper()
+	var doc map[string]any
+	if err := yaml.Unmarshal([]byte(EnvoyYAML(cfg)), &doc); err != nil {
+		t.Fatalf("invalid YAML: %v", err)
+	}
+	hcm, ok := yamlWalk(doc, "static_resources", "listeners", 0, "filter_chains", 0,
+		"filters", 0, "typed_config").(map[string]any)
+	if !ok {
+		t.Fatal("could not walk to HCM typed_config")
+	}
+	return hcm
+}
+
+func ingressRoute(t *testing.T, hcm map[string]any) map[string]any {
+	t.Helper()
+	routes, _ := yamlWalk(hcm, "route_config", "virtual_hosts", 0, "routes").([]any)
+	for _, r := range routes {
+		if yamlWalk(r, "match", "prefix") == "/api/ingress/" {
+			return yamlWalk(r, "route").(map[string]any)
+		}
+	}
+	t.Fatal("ingress route not found")
+	return nil
+}
+
+func TestEnvoyYAML_IngressRouteProfileTimeouts(t *testing.T) {
+	for _, tc := range []struct {
+		name            string
+		profile         costv1alpha1.Profile
+		timeout, perTry string
+		wantT, wantP    string
+	}{
+		{"small", costv1alpha1.ProfileSmall, "", "", "180s", "60s"},
+		{"medium", costv1alpha1.ProfileMedium, "", "", "180s", "180s"},
+		{"large", costv1alpha1.ProfileLarge, "", "", "600s", "300s"},
+		{"explicit", costv1alpha1.ProfileSmall, "900s", "400s", "900s", "400s"},
+		{"go duration normalized", costv1alpha1.ProfileSmall, "10m", "1m30s", "600s", "90s"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := testCfg()
+			cfg.Spec.Profile = tc.profile
+			cfg.Spec.Auth.Envoy.IngressTimeout = tc.timeout
+			cfg.Spec.Auth.Envoy.IngressPerTryTimeout = tc.perTry
+			route := ingressRoute(t, envoyHCM(t, cfg))
+			if got := route["timeout"]; got != tc.wantT {
+				t.Errorf("timeout = %v, want %s", got, tc.wantT)
+			}
+			if got := yamlWalk(route, "retry_policy", "per_try_timeout"); got != tc.wantP {
+				t.Errorf("per_try_timeout = %v, want %s", got, tc.wantP)
+			}
+		})
+	}
+}
+
+func TestEnvoyYAML_HCMParityWithChart(t *testing.T) {
+	hcm := envoyHCM(t, testCfg())
+	if _, ok := hcm["request_timeout"]; ok {
+		t.Error("HCM must not set request_timeout (chart parity)")
+	}
+	if hcm["stream_idle_timeout"] != "300s" {
+		t.Errorf("stream_idle_timeout = %v, want 300s", hcm["stream_idle_timeout"])
+	}
+	if got := yamlWalk(hcm, "common_http_protocol_options", "idle_timeout"); got != "300s" {
+		t.Errorf("idle_timeout = %v, want 300s", got)
+	}
+	if got := yamlWalk(hcm, "common_http_protocol_options", "max_connection_duration"); got != "600s" {
+		t.Errorf("max_connection_duration = %v, want 600s", got)
+	}
+}
+
+func TestEnvoyConfigHashChangesWithProfile(t *testing.T) {
+	small, large := testCfg(), testCfg()
+	small.Spec.Profile = costv1alpha1.ProfileSmall
+	large.Spec.Profile = costv1alpha1.ProfileLarge
+	if envoyConfigHash(small) == envoyConfigHash(large) {
+		t.Error("envoy config hash must differ between small and large profiles")
+	}
+}

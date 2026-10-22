@@ -79,10 +79,10 @@ func szNoReplicas(r corev1.ResourceRequirements) sizing {
 var profileTable = buildProfileTable()
 
 var profileKnobs = map[costv1alpha1.Profile]ProfileKnobs{
-	costv1alpha1.ProfileSmall:  {104857600, 33554432, "180s", "60s", "180s"},
-	costv1alpha1.ProfileMedium: {209715200, 67108864, "180s", "180s", "180s"},
-	costv1alpha1.ProfileLarge:  {524288000, 134217728, "600s", "300s", "600s"},
-	costv1alpha1.ProfileXLarge: {524288000, 134217728, "600s", "300s", "600s"},
+	costv1alpha1.ProfileSmall:  {MaxUploadSize: 104857600, MaxMemory: 33554432, EnvoyIngressTimeout: "180s", EnvoyIngressPerTryTimeout: "60s", RouteTimeout: "180s"},
+	costv1alpha1.ProfileMedium: {MaxUploadSize: 209715200, MaxMemory: 67108864, EnvoyIngressTimeout: "180s", EnvoyIngressPerTryTimeout: "180s", RouteTimeout: "180s"},
+	costv1alpha1.ProfileLarge:  {MaxUploadSize: 524288000, MaxMemory: 134217728, EnvoyIngressTimeout: "600s", EnvoyIngressPerTryTimeout: "300s", RouteTimeout: "600s"},
+	costv1alpha1.ProfileXLarge: {MaxUploadSize: 524288000, MaxMemory: 134217728, EnvoyIngressTimeout: "600s", EnvoyIngressPerTryTimeout: "300s", RouteTimeout: "600s"},
 }
 
 func buildProfileTable() map[costv1alpha1.Profile]map[Workload]sizing {

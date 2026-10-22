@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -274,6 +275,60 @@ func TestCRDKruizeReplicasMaximumOne(t *testing.T) {
 			f := navigateSchema(t, loadStoredSchema(t, install.path), "spec", "kruize", "replicas")
 			if f.Maximum == nil || *f.Maximum != 1 {
 				t.Errorf("spec.kruize.replicas maximum = %v, want 1", f.Maximum)
+			}
+		})
+	}
+}
+
+// TestCRDEnvoyTimeoutValidation checks both new Envoy ingress timeout fields
+// carry a duration pattern in the config and OLM bundle CRDs.
+func TestCRDEnvoyTimeoutValidation(t *testing.T) {
+	t.Parallel()
+
+	for _, install := range crdInstallPaths {
+		t.Run(install.name, func(t *testing.T) {
+			t.Parallel()
+
+			data, err := os.ReadFile(install.path)
+			if err != nil {
+				t.Fatalf("read CRD %s: %v", install.path, err)
+			}
+			var crd apiextensionsv1.CustomResourceDefinition
+			if err := yaml.Unmarshal(data, &crd); err != nil {
+				t.Fatalf("unmarshal CRD: %v", err)
+			}
+			envoy := crd.Spec.Versions[0].Schema.OpenAPIV3Schema.
+				Properties["spec"].Properties["auth"].Properties["envoy"]
+			for _, f := range []string{"ingressTimeout", "ingressPerTryTimeout"} {
+				p, ok := envoy.Properties[f]
+				if !ok {
+					t.Fatalf("%s missing from CRD", f)
+				}
+				if p.Pattern == "" {
+					t.Fatalf("%s has no pattern", f)
+				}
+				re := regexp.MustCompile(p.Pattern)
+				for _, good := range []string{"600s", "10m", "1m30s", "1.5h"} {
+					if !re.MatchString(good) {
+						t.Errorf("%s: pattern rejects %q", f, good)
+					}
+				}
+				for _, bad := range []string{"abc", "10", "s", "10 m", "-5s"} {
+					if re.MatchString(bad) {
+						t.Errorf("%s: pattern accepts %q", f, bad)
+					}
+				}
+			}
+			ing := crd.Spec.Versions[0].Schema.OpenAPIV3Schema.
+				Properties["spec"].Properties["ingress"]
+			for _, f := range []string{"maxUploadSize", "maxMemory"} {
+				p := ing.Properties[f]
+				if p.Minimum == nil || *p.Minimum != 1 {
+					t.Errorf("%s: want minimum 1", f)
+				}
+				if p.Default != nil {
+					t.Errorf("%s: must have no default", f)
+				}
 			}
 		})
 	}

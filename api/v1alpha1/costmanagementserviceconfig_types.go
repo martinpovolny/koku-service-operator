@@ -310,6 +310,15 @@ type EnvoySpec struct {
 	// +kubebuilder:validation:Minimum=0
 	Replicas  *int32                      `json:"replicas,omitempty"`
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
+	// IngressTimeout overrides the Envoy route timeout for /api/ingress/
+	// (uploads). Go duration format, e.g. "180s" or "10m". Unset uses the
+	// sizing profile value.
+	// +kubebuilder:validation:Pattern=`^([0-9]+(\.[0-9]+)?(ms|s|m|h))+$`
+	IngressTimeout string `json:"ingressTimeout,omitempty"`
+	// IngressPerTryTimeout overrides the Envoy per-try (retry) timeout for
+	// /api/ingress/. Go duration format. Unset uses the sizing profile value.
+	// +kubebuilder:validation:Pattern=`^([0-9]+(\.[0-9]+)?(ms|s|m|h))+$`
+	IngressPerTryTimeout string `json:"ingressPerTryTimeout,omitempty"`
 }
 
 // +kubebuilder:validation:XValidation:rule="!has(self.issuerURL) || size(self.issuerURL) == 0 || self.issuerURL.startsWith('https://')",message="issuerURL must use https when set"
@@ -393,9 +402,13 @@ type KeycloakSyncSpec struct {
 
 type IngressConfig struct {
 	Image ImageSpec `json:"image,omitempty"`
-	// Maximum upload size in bytes.
-	// +kubebuilder:default:=104857600
-	MaxUploadSize int64 `json:"maxUploadSize,omitempty"`
+	// Maximum upload size in bytes. Unset uses the sizing profile value.
+	// +kubebuilder:validation:Minimum=1
+	MaxUploadSize *int64 `json:"maxUploadSize,omitempty"`
+	// MaxMemory is the in-memory upload buffer in bytes (INGRESS_MAXUPLOADMEM).
+	// Unset uses the sizing profile value.
+	// +kubebuilder:validation:Minimum=1
+	MaxMemory *int64 `json:"maxMemory,omitempty"`
 	// Comma-separated list of valid upload content types.
 	// +kubebuilder:default:="hccm"
 	ValidTypes string                      `json:"validTypes,omitempty"`
