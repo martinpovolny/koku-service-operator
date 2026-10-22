@@ -1,7 +1,7 @@
 # Production / HA BYOI sample (COST-7679)
 #
 # Demonstrates a full external-infrastructure deployment with:
-#   - spec.profile: ha (raises UI CPU/memory when component resources are unset)
+#   - spec.profile: large (validated sizing tier; explicit component resources override it)
 #   - monitoring.enabled: true
 #   - explicit resource overrides on core workloads
 #   - higher replica counts on gateway and listener
@@ -36,7 +36,7 @@ metadata:
   name: cost-management-production
   namespace: cost-onprem
 spec:
-  profile: ha
+  profile: large
 
   global:
     clusterDomain: "apps.cluster.example.com"
