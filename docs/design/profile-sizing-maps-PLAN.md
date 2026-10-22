@@ -50,7 +50,7 @@
 | 6. Samples + e2e helpers | ✅ done | 1821a55, 05c0726 | review clean after 1 fix round (sample listener override must not downgrade `large` memory) |
 | 7. Perf harness uses `spec.profile` | ✅ done | 89cdb40, bd709cc | review clean after 1 fix round (wait for status.observedGeneration + status.profile before verifying); polling untested until Task 10 |
 | 8. Docs | ✅ done | 17164fe, 9518372, 47f8f2b | review clean after 2 fix rounds; mapping doc now points at design §5 instead of duplicating per-tier YAML |
-| 9. Final verification + PR | ☐ todo | | Steps 6-7 (push/PR/Jira) run only after Task 10 and user OK |
+| 9. Final verification + PR | 🔄 Steps 1-5 ✅ | | no drift; make test / test-scripts / lint / govulncheck green; profiles.go 100%. Steps 6-7 (push/PR/Jira) after Task 10 + user OK |
 | 10. Cluster Bot end-to-end validation | ☐ todo | | requested by user 2026-10-22; Cluster Bot 3 masters + 3 workers (CRC fallback) |
 
 ## Decision log
