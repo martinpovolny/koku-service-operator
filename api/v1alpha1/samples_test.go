@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"k8s.io/apimachinery/pkg/api/resource"
 	"sigs.k8s.io/yaml"
 )
 
@@ -285,6 +286,13 @@ func TestProductionSampleUsesLargeProfile(t *testing.T) {
 	res := cfg.Spec.CostManagement.Listener.Resources
 	if len(res.Requests) == 0 && len(res.Limits) == 0 {
 		t.Error("listener resources override missing; sample should demonstrate precedence over the profile")
+	}
+	// The override replaces the profile whole, so it must not downgrade memory.
+	if got, min := res.Requests.Memory(), resource.MustParse("2Gi"); got.Cmp(min) < 0 {
+		t.Errorf("listener memory request = %s, want >= %s", got, &min)
+	}
+	if got, min := res.Limits.Memory(), resource.MustParse("4Gi"); got.Cmp(min) < 0 {
+		t.Errorf("listener memory limit = %s, want >= %s", got, &min)
 	}
 	// Overrides that merely duplicate the profile were dropped.
 	api := cfg.Spec.CostManagement.API

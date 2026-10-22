@@ -6,8 +6,9 @@
 #     every operator-managed workload
 #   - monitoring.enabled: true
 #   - one explicit resources override (costManagement.listener.resources) to
-#     show precedence: an explicit spec.*.resources or replicas value always
-#     wins over the profile default for that workload
+#     show precedence: it keeps large's listener memory and raises CPU for
+#     faster bulk ingestion. An explicit resources block replaces the profile
+#     values whole (no merge), so memory must be restated.
 #
 # Everything else (replicas, requests/limits) comes from the profile. Change
 # spec.profile to resize the whole stack; no per-component tuning is needed.
@@ -114,11 +115,11 @@ spec:
       # Precedence example: explicit resources override the large profile.
       resources:
         requests:
-          cpu: 250m
-          memory: 512Mi
-        limits:
-          cpu: "1"
+          cpu: 500m
           memory: 2Gi
+        limits:
+          cpu: 1000m
+          memory: 4Gi
 
   ros:
     enabled: false
