@@ -241,11 +241,11 @@ func TestProfileKnobsFor(t *testing.T) {
 		profile costv1alpha1.Profile
 		want    ProfileKnobs
 	}{
-		{costv1alpha1.ProfileSmall, ProfileKnobs{104857600, 33554432, "180s", "60s", "180s"}},
-		{costv1alpha1.ProfileMedium, ProfileKnobs{209715200, 67108864, "180s", "180s", "180s"}},
-		{costv1alpha1.ProfileLarge, ProfileKnobs{524288000, 134217728, "600s", "300s", "600s"}},
-		{costv1alpha1.ProfileXLarge, ProfileKnobs{524288000, 134217728, "600s", "300s", "600s"}},
-		{"", ProfileKnobs{104857600, 33554432, "180s", "60s", "180s"}},
+		{costv1alpha1.ProfileSmall, ProfileKnobs{MaxUploadSize: 104857600, MaxMemory: 33554432, EnvoyIngressTimeout: "180s", EnvoyIngressPerTryTimeout: "60s", RouteTimeout: "180s"}},
+		{costv1alpha1.ProfileMedium, ProfileKnobs{MaxUploadSize: 209715200, MaxMemory: 67108864, EnvoyIngressTimeout: "180s", EnvoyIngressPerTryTimeout: "180s", RouteTimeout: "180s"}},
+		{costv1alpha1.ProfileLarge, ProfileKnobs{MaxUploadSize: 524288000, MaxMemory: 134217728, EnvoyIngressTimeout: "600s", EnvoyIngressPerTryTimeout: "300s", RouteTimeout: "600s"}},
+		{costv1alpha1.ProfileXLarge, ProfileKnobs{MaxUploadSize: 524288000, MaxMemory: 134217728, EnvoyIngressTimeout: "600s", EnvoyIngressPerTryTimeout: "300s", RouteTimeout: "600s"}},
+		{"", ProfileKnobs{MaxUploadSize: 104857600, MaxMemory: 33554432, EnvoyIngressTimeout: "180s", EnvoyIngressPerTryTimeout: "60s", RouteTimeout: "180s"}},
 	}
 	for _, c := range cases {
 		if got := ProfileKnobsFor(profileCfg(c.profile)); got != c.want {

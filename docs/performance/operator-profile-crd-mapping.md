@@ -117,11 +117,13 @@ spec:
 ## Sizing abstraction
 
 Implemented by COST-8095: `spec.profile` accepts `small | medium | large | xlarge`
-and the operator resolves the effective values in the reconciler (see
+and the operator resolves the effective values in the workload builders at render time (see
 [profile-sizing-maps.md](../design/profile-sizing-maps.md)). Rules:
 
 1. A profile supplies defaults for any **unset** nested field.
-2. Explicit component values in the CR always win (sparse override).
+2. Explicit component values in the CR always win: explicit scalar fields (for
+   example `replicas`) override individually, while an explicit `resources`
+   block replaces the profile's resources block whole (no per-key merge).
 3. If `spec.profile` is unset, `small` applies (COST-7599 baseline).
 4. The effective profile is reported in `status.profile`.
 

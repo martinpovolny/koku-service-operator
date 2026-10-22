@@ -20,7 +20,7 @@ as the template. It demonstrates:
 - External DB, cache, Kafka, S3, OIDC (`deploy: false`)
 - `spec.profile: large` (see [Sizing profile](#sizing-profile))
 - `monitoring.enabled: true`
-- Explicit `spec.*.resources` and replica counts on core workloads
+- A single explicit `resources` override on the listener (no replica counts; replicas come from the profile)
 - SASL_SSL Kafka, cache TLS, S3 CA
 - `ros.enabled: false`
 
@@ -38,6 +38,12 @@ effective tier is reported in `status.profile`. BYOI infrastructure, the
 dev-only bundled DB/cache, migration Jobs, and SaaS Celery queues are outside
 profiles; ROS API/poller/housekeeper stay at `small`. The exact set is in
 [design §5](../design/profile-sizing-maps.md).
+
+The HAProxy route timeout comes from the profile (180s for `small`/`medium`,
+600s for `large`/`xlarge`) and is separate from `spec.auth.envoy.ingressTimeout`.
+If you raise `ingressTimeout` above the route timeout, also set
+`spec.gatewayRoute.annotations["haproxy.router.openshift.io/timeout"]` to a
+value at least as large, otherwise HAProxy cuts uploads off first.
 
 Any field you set explicitly in the CR overrides the profile value for that
 field only (for example, an explicit `resources` block replaces the profile's
