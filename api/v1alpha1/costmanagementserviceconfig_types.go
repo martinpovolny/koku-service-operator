@@ -311,13 +311,23 @@ type EnvoySpec struct {
 	Replicas  *int32                      `json:"replicas,omitempty"`
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
 	// IngressTimeout overrides the Envoy route timeout for /api/ingress/
-	// (uploads). Go duration format, e.g. "180s" or "10m". Unset uses the
-	// sizing profile value.
+	// (uploads). Go duration format, e.g. "180s" or "10m"; must be positive.
+	// Unset uses the sizing profile value.
+	//
+	// The OpenShift Route (HAProxy) timeout is separate: it comes from the
+	// profile (180s small/medium, 600s large/xlarge). If ingressTimeout exceeds
+	// it, also raise spec.gatewayRoute.annotations["haproxy.router.openshift.io/timeout"],
+	// otherwise HAProxy cuts the upload first.
 	// +kubebuilder:validation:Pattern=`^([0-9]+(\.[0-9]+)?(ms|s|m|h))+$`
+	// +kubebuilder:validation:MaxLength=64
+	// +kubebuilder:validation:XValidation:rule="duration(self) > duration('0s')",message="must be a positive duration"
 	IngressTimeout string `json:"ingressTimeout,omitempty"`
 	// IngressPerTryTimeout overrides the Envoy per-try (retry) timeout for
-	// /api/ingress/. Go duration format. Unset uses the sizing profile value.
+	// /api/ingress/. Go duration format; must be positive. Unset uses the sizing
+	// profile value.
 	// +kubebuilder:validation:Pattern=`^([0-9]+(\.[0-9]+)?(ms|s|m|h))+$`
+	// +kubebuilder:validation:MaxLength=64
+	// +kubebuilder:validation:XValidation:rule="duration(self) > duration('0s')",message="must be a positive duration"
 	IngressPerTryTimeout string `json:"ingressPerTryTimeout,omitempty"`
 }
 

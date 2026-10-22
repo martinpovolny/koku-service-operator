@@ -310,7 +310,9 @@ func yamlScalar(s string) string {
 
 // envoyDuration normalizes a Go duration string ("10m") to the seconds form
 // Envoy's protobuf Duration accepts ("600s"). Falls back to def when explicit
-// is empty or unparsable (the CRD pattern normally prevents the latter).
+// is empty. The CRD (pattern + positive-duration CEL rule) guarantees explicit
+// values are valid and positive, so the fallback for unparsable or non-positive
+// input is purely defensive and never reached for an admitted CR.
 func envoyDuration(explicit, def string) string {
 	if explicit != "" {
 		if d, err := time.ParseDuration(explicit); err == nil && d > 0 {

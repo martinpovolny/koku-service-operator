@@ -727,3 +727,25 @@ func TestEnvoyConfigHashChangesWithProfile(t *testing.T) {
 		t.Error("envoy config hash must differ between small and large profiles")
 	}
 }
+
+func TestEnvoyDuration(t *testing.T) {
+	cases := []struct {
+		name, explicit, def, want string
+	}{
+		{"hours and minutes", "1h30m", "180s", "5400s"},
+		{"milliseconds", "500ms", "180s", "0.5s"},
+		{"minutes", "10m", "180s", "600s"},
+		{"seconds", "300s", "180s", "300s"},
+		{"empty uses default", "", "180s", "180s"},
+		// Defensive only: the CRD rejects these before the builders run.
+		{"zero falls back", "0s", "180s", "180s"},
+		{"garbage falls back", "abc", "60s", "60s"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := envoyDuration(c.explicit, c.def); got != c.want {
+				t.Errorf("envoyDuration(%q, %q) = %q, want %q", c.explicit, c.def, got, c.want)
+			}
+		})
+	}
+}
