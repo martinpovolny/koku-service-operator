@@ -52,7 +52,7 @@ the Helm overlays map to CR paths.
 | `costManagement.celery.workers.ocp.replicas` | `spec.costManagement.celery.workers.ocp.replicas` | |
 | `costManagement.celery.workers.summary.replicas` | `spec.costManagement.celery.workers.summary.replicas` | |
 | `ros.processor.replicas` | `spec.ros.processor.replicas` | |
-| *(always 1)* | `spec.kruize.replicas` | Hardcoded — see PERF-FINDING-004 |
+| *(always 1)* | `spec.kruize.replicas` | Optional `*int32`, capped at 1 by CRD validation (PERF-FINDING-004) |
 
 ### Resource requests / limits
 
@@ -81,122 +81,32 @@ the Helm overlays map to CR paths.
 | `jwtAuth.envoy.ingressTimeout` | `spec.auth.envoy.ingressTimeout` | Envoy route timeout |
 | `jwtAuth.envoy.ingressPerTryTimeout` | `spec.auth.envoy.ingressPerTryTimeout` | Envoy per-try timeout |
 
-> The operator injects `haproxy.router.openshift.io/timeout=180s` by default
-> unless `spec.gatewayRoute.annotations` overrides it (see `GatewayRouteConfig`).
-> Large/xlarge profiles need `"600s"`.
+> The profile supplies the HAProxy route timeout (180s at small/medium, 600s at
+> large/xlarge). An explicit
+> `spec.gatewayRoute.annotations["haproxy.router.openshift.io/timeout"]`
+> overrides it.
 
 ---
 
-## Per-profile numbers (from validated Helm overlays)
+## Per-profile numbers
 
-These are the numeric values to set on the CR for each sizing tier.
-`baseline`/`small` match chart defaults and require no overrides.
+The operator applies the sizing tiers via `spec.profile`; the authoritative
+per-workload values are in
+[profile-sizing-maps.md §5](../design/profile-sizing-maps.md). They are not
+duplicated here.
 
-### `medium` profile
+To override one component, set the field explicitly. An explicit `resources`
+block replaces the profile's block **whole**, so restate both CPU and memory.
+Example, listener at `large`:
 
 ```yaml
 spec:
+  profile: large
   costManagement:
     listener:
-      replicas: 2
       resources:
-        requests: { memory: 1Gi }
-        limits:   { memory: 2Gi }
-    celery:
-      workers:
-        ocp:
-          replicas: 2
-          resources:
-            requests: { cpu: 250m, memory: 512Mi }
-            limits:   { cpu: 1000m, memory: 2Gi }
-        summary:
-          replicas: 2
-          resources:
-            requests: { cpu: 250m }
-            limits:   { cpu: 1000m }
-  ros:
-    processor:
-      replicas: 2
-      resources:
-        requests: { memory: 2Gi }
-        limits:   { memory: 4Gi }
-  kruize:
-    replicas: 1
-    resources:
-      limits: { cpu: 2000m }
-  ingress:
-    maxUploadSize: 209715200   # 200 MB
-    resources:
-      requests: { memory: 1Gi }
-      limits:   { memory: 2Gi }
-  gatewayRoute:
-    annotations:
-      haproxy.router.openshift.io/timeout: "180s"
-```
-
-### `large` profile
-
-```yaml
-spec:
-  costManagement:
-    listener:
-      replicas: 3
-      resources:
-        requests: { memory: 2Gi }
-        limits:   { memory: 4Gi }
-    celery:
-      workers:
-        ocp:
-          replicas: 3
-          resources:
-            requests: { cpu: 500m, memory: 1Gi }
-            limits:   { cpu: 1000m, memory: 2Gi }
-        summary:
-          replicas: 3
-          resources:
-            requests: { cpu: 500m }
-            limits:   { cpu: 1000m }
-  ros:
-    processor:
-      replicas: 3
-      resources:
-        requests: { memory: 2Gi }
-        limits:   { memory: 4Gi }
-  kruize:
-    replicas: 1
-    resources:
-      limits: { cpu: 2000m }
-  ingress:
-    maxUploadSize: 524288000   # 500 MB
-    resources:
-      requests: { memory: 2Gi }
-      limits:   { memory: 4Gi }
-  gatewayRoute:
-    annotations:
-      haproxy.router.openshift.io/timeout: "600s"
-```
-
-### `xlarge` profile
-
-Same replica and resource config as `large`, with raised worker CPU for
-tag-based cost model processing:
-
-```yaml
-spec:
-  costManagement:
-    celery:
-      workers:
-        ocp:
-          replicas: 3
-          resources:
-            requests: { cpu: 1000m, memory: 2Gi }
-            limits:   { cpu: 2000m, memory: 4Gi }
-        summary:
-          replicas: 3
-          resources:
-            requests: { cpu: 1000m }
-            limits:   { cpu: 2000m }
-  # All other fields identical to large profile above
+        requests: { cpu: 500m, memory: 2Gi }
+        limits:   { cpu: 1000m, memory: 4Gi }
 ```
 
 ---

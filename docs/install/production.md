@@ -30,11 +30,14 @@ and is not a production pin.
 ## Sizing profile
 
 `spec.profile` is one of `small` (default), `medium`, `large`, or `xlarge`.
-It sizes the whole stack: CPU/memory requests and limits, replica counts,
+It sizes the Cost workloads the operator runs: CPU/memory requests and limits, replica counts,
 ingress upload limits (`spec.ingress.maxUploadSize`, `spec.ingress.maxMemory`),
 Envoy ingress timeouts (`spec.auth.envoy.ingressTimeout`,
 `spec.auth.envoy.ingressPerTryTimeout`), and the HAProxy route timeout. The
-effective tier is reported in `status.profile`.
+effective tier is reported in `status.profile`. BYOI infrastructure, the
+dev-only bundled DB/cache, migration Jobs, and SaaS Celery queues are outside
+profiles; ROS API/poller/housekeeper stay at `small`. The exact set is in
+[design §5](../design/profile-sizing-maps.md).
 
 Any field you set explicitly in the CR overrides the profile value for that
 field only (for example, an explicit `resources` block replaces the profile's

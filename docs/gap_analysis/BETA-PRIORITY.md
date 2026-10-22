@@ -79,7 +79,7 @@ Several paths report success while the underlying dependency is wrong or while a
 
 ### T5. Profile / HA sizing — **P2 for beta** → [COST-8095](../jira/COST-8095.md)
 
-Implemented on branch `cost-8095-profile-sizing-maps` ([COST-8095](https://redhat.atlassian.net/browse/COST-8095)): `spec.profile` is now a validated sizing tier `small|medium|large|xlarge` (default `small`) replacing `standard|ha`. It drives resources, replicas, ingress upload limits, Envoy ingress timeouts, and the HAProxy route timeout for the Cost workloads; explicit CR fields override it and `status.profile` reports the effective tier. See [profile-sizing-maps.md](../design/profile-sizing-maps.md). ROS/Kruize rows stay with [COST-8054](../jira/COST-8054.md).
+[COST-8095](https://redhat.atlassian.net/browse/COST-8095) makes `spec.profile` a validated sizing tier `small|medium|large|xlarge` (default `small`) replacing `standard|ha`. It drives resources, replicas, ingress upload limits, Envoy ingress timeouts, and the HAProxy route timeout for the Cost workloads; explicit CR fields override it and `status.profile` reports the effective tier. See [profile-sizing-maps.md](../design/profile-sizing-maps.md). ROS/Kruize rows stay with [COST-8054](../jira/COST-8054.md).
 
 **Beta stance:** `small` is the default; `medium|large|xlarge` are available for larger deployments. `ha` no longer exists.
 
