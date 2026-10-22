@@ -44,14 +44,14 @@
 |------|--------|-------------|-------|
 | 1. Profile enum + sizing table | ✅ done | 5626b2a, 9fdec8c | review clean; prod sample enum bumped ha→large early (T6 finishes it) |
 | 2. Replica pointers + replica wiring | ✅ done | 0743ca3, 943b82f | review clean after 1 fix round (OLM bundle regen); e2e has compile-only stopgap until T6 |
-| 3. Resource wiring in builders | ☐ todo | | |
+| 3. Resource wiring in builders | ✅ done | 6fce0e9 | review clean |
 | 4. Ingress / gateway knobs + Envoy HCM parity | ☐ todo | | |
 | 5. `status.profile` + printer column | ☐ todo | | |
 | 6. Samples + e2e helpers | ☐ todo | | |
 | 7. Perf harness uses `spec.profile` | ☐ todo | | |
 | 8. Docs | ☐ todo | | |
 | 9. Final verification + PR | ☐ todo | | Steps 6-7 (push/PR/Jira) run only after Task 10 and user OK |
-| 10. CRC end-to-end validation | ☐ todo | | requested by user 2026-10-22; needs CRC access details |
+| 10. Cluster Bot end-to-end validation | ☐ todo | | requested by user 2026-10-22; Cluster Bot 3 masters + 3 workers (CRC fallback) |
 
 ## Decision log
 
@@ -76,7 +76,7 @@ Newest last. Each entry: date · decision · why · source.
 | D15 | 2026-10-22 | Design and plan live in `docs/design/` | Repo convention over skill default path | Claude's call |
 | D16 | 2026-10-22 | No extra CEL guards on overrides (Kruize CPU ≥ 2000m, upload caps, timeout floors) | Overrides are the customer's call | Claude's call |
 | D17 | 2026-10-22 | Every API-changing task regenerates the OLM bundle (`make bundle IMAGE_SHA=<committed containerImage>`) | CI `bundle-validate` regenerates and fails on drift; bundle CRD carries `spec.profile` | Claude's call (found during Task 2) |
-| D18 | 2026-10-22 | Validate the whole branch on a CRC instance before opening the PR | Unit/envtest can't prove scheduling, rollouts or real uploads | User |
+| D18 | 2026-10-22 | Validate the whole branch on a live cluster before opening the PR — Cluster Bot 3+3 (CRC only as fallback) | Unit/envtest can't prove scheduling, rollouts or real uploads; 3 workers can actually schedule `large` | User |
 
 ---
 
@@ -387,17 +387,22 @@ git commit -am "[COST-8095] Profile-driven upload limits and gateway timeouts; E
 
 ---
 
-### Task 10: CRC end-to-end validation
+### Task 10: Cluster Bot end-to-end validation
 
-Runs after Task 9 Steps 1-5 and before Task 9 Steps 6-7. Follow
-`docs/development/crc-testing.md` for deploying the branch build to CRC.
-Record every check's command and observed output in this task's notes.
+Runs after Task 9 Steps 1-5 and before Task 9 Steps 6-7. Cluster: Cluster Bot,
+3 control-plane + 3 workers. Follow
+[docs/development/clusterbot-operator-pytest.md](../development/clusterbot-operator-pytest.md)
+(operator in-cluster via `scripts/deploy-incluster.sh`, BYOI via
+`scripts/deploy-test-cost-onprem.sh --deploy-s4 --skip-helm --skip-chart-tests`,
+pytest via `scripts/run-pytest.sh`). Do not use `make run` / `make deploy`
+from a laptop (CLAUDE.md). CRC (`docs/development/crc-testing.md`) only as a
+fallback. Record every check's command and observed output in this task's notes.
 
-- [ ] **Step 1:** Get CRC access from the user (kubeconfig/context); confirm `oc whoami` and that BYOI fixtures are up (`config/samples/byoi/README.md`).
+- [ ] **Step 1:** User provides the Cluster Bot kubeconfig; confirm `oc whoami`, 3 worker nodes Ready. Build + push the branch image (`quay.io/<user>/koku-service-operator:cost-8095-<sha>`), deploy with `IMG=… ./scripts/deploy-incluster.sh cost-onprem`, deploy BYOI infra per the runbook.
 - [ ] **Step 2:** Deploy operator from this branch; apply a CR **without** `spec.profile`. Expect `status.profile: small`, `oc get cmsc` shows `Profile` column; every managed pod has requests+limits per spec §5.1; celery `ocp`/`summary` 2 replicas, `download`/`refresh` 0, listener 2, envoy 2.
-- [ ] **Step 3:** Patch `spec.profile: large`. Expect listener/ocp/summary roll to 3 (ROS processor 3 only if ROS enabled), listener mem 2Gi/4Gi, ingress mem 2Gi/4Gi, ingress env `INGRESS_DEFAULTMAXSIZE=524288000` / `INGRESS_MAXUPLOADMEM=134217728`, route annotation `haproxy.router.openshift.io/timeout: 600s`, Envoy config ingress route `600s`/`300s`, HCM without `request_timeout`, Envoy pod rolled (config-hash changed). If CRC can't schedule `large`, verify rendered Deployment specs instead and note it.
+- [ ] **Step 3:** Patch `spec.profile: large`. Expect listener/ocp/summary roll to 3 and all pods schedule (ROS processor 3 only if ROS enabled), listener mem 2Gi/4Gi, ingress mem 2Gi/4Gi, ingress env `INGRESS_DEFAULTMAXSIZE=524288000` / `INGRESS_MAXUPLOADMEM=134217728`, route annotation `haproxy.router.openshift.io/timeout: 600s`, Envoy config ingress route `600s`/`300s`, HCM without `request_timeout`, Envoy pod rolled (config-hash changed). If pods can't schedule, record node allocatable vs requests and verify rendered Deployment specs instead.
 - [ ] **Step 4:** Set explicit `spec.costManagement.listener.resources`; switch profile `large → medium`; explicit block survives unchanged, other workloads move to medium.
 - [ ] **Step 5:** `oc scale deploy/<celery-worker-ocp> --replicas=5`; within one reconcile / ≤5 min drift requeue it returns to the profile value.
-- [ ] **Step 6:** Upload a payload through the gateway (existing ingestion smoke / pytest ingestion path) and confirm it's processed.
-- [ ] **Step 7:** Record results here, update Progress row 10, commit `[COST-8095] Plan: CRC validation results`.
+- [ ] **Step 6:** Run the pytest suite against the operator stack (`NAMESPACE=cost-onprem ./scripts/run-pytest.sh --no-ui`) at `small`, then the ingestion subset at `large`; record pass/fail counts. Optionally run `PERF_PROFILE=large` through the updated perf harness (Task 7) to confirm it no longer fights the operator.
+- [ ] **Step 7:** Record results here, update Progress row 10, commit `[COST-8095] Plan: Cluster Bot validation results`.
 
