@@ -65,6 +65,7 @@ if ! jq -e '.spec.profile == "large"
   echo "FAIL: large: patch JSON invalid or wrong shape: ${pj}" >&2; fail=1
 fi
 assert_contains "$out" "would wait up to 300s for CMSC status.observedGeneration" "large: wait step announced"
+assert_contains "$out" "condition Progressing == False" "large: wait step requires Progressing=False"
 
 out="$(run_profile __unset__)"
 assert_contains "$out" '"profile":"small"' "unset PERF_PROFILE maps to small"

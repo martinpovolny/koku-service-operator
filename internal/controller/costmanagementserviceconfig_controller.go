@@ -79,6 +79,9 @@ type CostManagementServiceConfigReconciler struct {
 	APIReader client.Reader
 	Scheme    *runtime.Scheme
 	Recorder  record.EventRecorder
+
+	// phasesOverride replaces the production phase pipeline. Tests only.
+	phasesOverride func(ctx context.Context, cfg *costv1alpha1.CostManagementServiceConfig) []PhaseFn
 }
 
 // CostManagementServiceConfig (the owned CR): watched via For(); Update is used
@@ -186,7 +189,6 @@ func (r *CostManagementServiceConfigReconciler) markPaused(cfg *costv1alpha1.Cos
 	r.setCondition(cfg, costv1alpha1.ConditionProgressing, metav1.ConditionFalse,
 		"Paused", "reconciliation paused via annotation")
 	cfg.Status.ObservedGeneration = cfg.Generation
-	cfg.Status.Profile = resources.EffectiveProfile(cfg)
 	if r.Recorder != nil {
 		r.Recorder.Event(cfg, corev1.EventTypeNormal, "Paused",
 			"Reconciliation paused; remove the pause annotation to resume")
@@ -248,6 +250,25 @@ func (r *CostManagementServiceConfigReconciler) reconcileDelete(ctx context.Cont
 	return ctrl.Result{}, nil
 }
 
+// phases returns the ordered stage pipeline run by reconcile().
+func (r *CostManagementServiceConfigReconciler) phases(ctx context.Context, cfg *costv1alpha1.CostManagementServiceConfig) []PhaseFn {
+	if r.phasesOverride != nil {
+		return r.phasesOverride(ctx, cfg)
+	}
+	return []PhaseFn{
+		func() (Result, error) { return r.reconcileWorkloadImages(ctx, cfg) },
+		func() (Result, error) { return r.reconcileDiscovery(ctx, cfg) },
+		func() (Result, error) { return r.reconcileSharedConfig(ctx, cfg) },
+		func() (Result, error) { return r.reconcileInfrastructure(ctx, cfg) },
+		func() (Result, error) { return r.reconcileValidation(ctx, cfg) },
+		func() (Result, error) { return r.reconcileMigration(ctx, cfg) },
+		func() (Result, error) { return r.reconcileCoreServices(ctx, cfg) },
+		func() (Result, error) { return r.reconcileWorkers(ctx, cfg) },
+		func() (Result, error) { return r.reconcileEdge(ctx, cfg) },
+		func() (Result, error) { return r.reconcileMonitoring(ctx, cfg) },
+	}
+}
+
 // reconcile drives the ordered, staged rollout:
 //  0. Workload images (spec.*.image required; no operator catalog default)
 //  1. Discovery (cluster domain, StorageClass, S3)
@@ -263,22 +284,10 @@ func (r *CostManagementServiceConfigReconciler) reconcile(ctx context.Context, c
 	// first Ready transition at the end of this pass.
 	priorPhase := cfg.Status.Phase
 	cfg.Status.ObservedGeneration = cfg.Generation
-	cfg.Status.Profile = resources.EffectiveProfile(cfg)
 	cfg.Status.Phase = costv1alpha1.PhaseProgressing
 	r.setCondition(cfg, costv1alpha1.ConditionProgressing, metav1.ConditionTrue, "Reconciling", "Reconciliation in progress")
 
-	result, err := runPhases([]PhaseFn{
-		func() (Result, error) { return r.reconcileWorkloadImages(ctx, cfg) },
-		func() (Result, error) { return r.reconcileDiscovery(ctx, cfg) },
-		func() (Result, error) { return r.reconcileSharedConfig(ctx, cfg) },
-		func() (Result, error) { return r.reconcileInfrastructure(ctx, cfg) },
-		func() (Result, error) { return r.reconcileValidation(ctx, cfg) },
-		func() (Result, error) { return r.reconcileMigration(ctx, cfg) },
-		func() (Result, error) { return r.reconcileCoreServices(ctx, cfg) },
-		func() (Result, error) { return r.reconcileWorkers(ctx, cfg) },
-		func() (Result, error) { return r.reconcileEdge(ctx, cfg) },
-		func() (Result, error) { return r.reconcileMonitoring(ctx, cfg) },
-	})
+	result, err := runPhases(r.phases(ctx, cfg))
 
 	if err != nil {
 		// applyPhaseError handles structured PhaseError (condition + phase from err).
@@ -313,6 +322,8 @@ func (r *CostManagementServiceConfigReconciler) reconcile(ctx context.Context, c
 	r.setCondition(cfg, costv1alpha1.ConditionProgressing, metav1.ConditionFalse, "ReconcileComplete", "")
 	r.setCondition(cfg, costv1alpha1.ConditionDegraded, metav1.ConditionFalse, "ReconcileComplete", "")
 	cfg.Status.Phase = costv1alpha1.PhaseReady
+	// Only a fully successful pass reports the tier as applied (design §3.4).
+	cfg.Status.Profile = resources.EffectiveProfile(cfg)
 	r.emitPhaseChanged(cfg, priorPhase, costv1alpha1.PhaseReady)
 	// Periodic drift correction: re-apply all desired state every 5 minutes so
 	// manual edits to managed resources are reverted without waiting for an event.
