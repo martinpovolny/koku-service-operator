@@ -97,7 +97,10 @@ duplicated here.
 
 To override one component, set the field explicitly. An explicit `resources`
 block replaces the profile's block **whole**, so restate both CPU and memory.
-Example, listener at `large`:
+Example override on top of `profile: large`: keep large's listener memory
+(2Gi/4Gi) and raise listener CPU from the profile's 150m/300m to 500m/1000m for
+faster bulk ingestion. Because the explicit block replaces the profile's block
+whole, memory must be restated:
 
 ```yaml
 spec:
@@ -142,7 +145,10 @@ rather than using `oc scale`. Envoy's HTTP connection manager matches the chart
 
 The previously missing fields now exist: `spec.auth.envoy.ingressTimeout`,
 `spec.auth.envoy.ingressPerTryTimeout`, and `spec.ingress.maxMemory`. The
-remaining items in the CEL table above are not yet encoded as validation.
+remaining CEL-table suggestions above (Kruize CPU >= 2000m when overridden,
+upload-size caps, timeout floors) are deliberately not encoded: explicit
+overrides are the customer's call and the profile already sets those values
+correctly (see [design §4.5](../design/profile-sizing-maps.md)).
 
 ---
 
