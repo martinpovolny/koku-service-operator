@@ -241,9 +241,7 @@ func loadStoredSchema(t *testing.T, path string) *apiextensionsv1.JSONSchemaProp
 func TestCRDReplicaFieldsHaveNoDefault(t *testing.T) {
 	t.Parallel()
 
-	// Only the generated config CRD: bundle/manifests is regenerated at release
-	// time (make bundle) and already lags config/crd (e.g. spec.profile).
-	for _, install := range crdInstallPaths[:1] {
+	for _, install := range crdInstallPaths {
 		t.Run(install.name, func(t *testing.T) {
 			t.Parallel()
 			schema := loadStoredSchema(t, install.path)
@@ -270,9 +268,7 @@ func TestCRDReplicaFieldsHaveNoDefault(t *testing.T) {
 func TestCRDKruizeReplicasMaximumOne(t *testing.T) {
 	t.Parallel()
 
-	// Only the generated config CRD: bundle/manifests is regenerated at release
-	// time (make bundle) and already lags config/crd (e.g. spec.profile).
-	for _, install := range crdInstallPaths[:1] {
+	for _, install := range crdInstallPaths {
 		t.Run(install.name, func(t *testing.T) {
 			t.Parallel()
 			f := navigateSchema(t, loadStoredSchema(t, install.path), "spec", "kruize", "replicas")
