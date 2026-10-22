@@ -58,14 +58,14 @@ apply_perf_profile_config() {
         ros_workloads_required=true
     fi
 
-    local profile="${PERF_PROFILE}"
+    local profile="${PERF_PROFILE:-}"
     local ros_processor_replicas=1
     local listener_replicas=2
     local ocp_worker_replicas=2
     local summary_worker_replicas=2
     local kruize_cpu_lim="2000m"
 
-    case "${PERF_PROFILE}" in
+    case "${profile}" in
         baseline|small|"")
             profile="small"
             ;;
@@ -79,7 +79,8 @@ apply_perf_profile_config() {
             summary_worker_replicas=3
             ;;
         *)
-            log_warning "Unknown PERF_PROFILE '${PERF_PROFILE}' — passing through to spec.profile"
+            log_error "Unknown PERF_PROFILE '${profile}' (valid: baseline|small|medium|large|xlarge)"
+            return 1
             ;;
     esac
 
@@ -91,11 +92,12 @@ apply_perf_profile_config() {
     patch+=',"kruize":{"resources":null}'
     patch+=',"ingress":{"maxUploadSize":null,"maxMemory":null}}}'
 
-    log_step "Applying per-profile cluster config for profile: ${PERF_PROFILE} (spec.profile=${profile})"
+    log_step "Applying per-profile cluster config for profile: ${PERF_PROFILE:-} (spec.profile=${profile})"
     log_info "  expected replicas: listener=${listener_replicas} ocp=${ocp_worker_replicas} summary=${summary_worker_replicas} ros-processor=${ros_processor_replicas} kruize=1"
 
     if [[ "${DRY_RUN:-false}" == "true" ]]; then
         log_info "DRY RUN: oc patch cmsc ${release} -n ${namespace} --type merge -p '${patch}'"
+        log_info "DRY RUN: would wait up to 300s for CMSC status.observedGeneration == metadata.generation and status.profile == ${profile}"
         log_info "DRY RUN: would verify replicas: listener=${listener_replicas} ocp=${ocp_worker_replicas} summary=${summary_worker_replicas} ros-processor=${ros_processor_replicas} kruize=1"
         return 0
     fi
@@ -105,6 +107,26 @@ apply_perf_profile_config() {
         return 1
     fi
     log_info "Patched CMSC ${namespace}/${release}: spec.profile=${profile}"
+
+    # Wait for the operator to reconcile the new profile before looking at
+    # Deployments; otherwise rollout/verify can read the pre-patch state.
+    log_info "Waiting for operator to observe profile ${profile} (up to 300s)..."
+    local waited=0 gen observed status_profile
+    while true; do
+        gen="$(perf_kubectl get cmsc "${release}" -n "${namespace}" -o jsonpath='{.metadata.generation}' 2>/dev/null || true)"
+        observed="$(perf_kubectl get cmsc "${release}" -n "${namespace}" -o jsonpath='{.status.observedGeneration}' 2>/dev/null || true)"
+        status_profile="$(perf_kubectl get cmsc "${release}" -n "${namespace}" -o jsonpath='{.status.profile}' 2>/dev/null || true)"
+        if [[ -n "${gen}" && "${gen}" == "${observed}" && "${status_profile}" == "${profile}" ]]; then
+            log_info "  operator observed generation ${gen}, status.profile=${status_profile}"
+            break
+        fi
+        if (( waited >= 300 )); then
+            log_error "Timed out waiting for CMSC ${namespace}/${release} to report profile ${profile} (generation=${gen:-?} observedGeneration=${observed:-?} status.profile=${status_profile:-?})"
+            return 1
+        fi
+        sleep 5
+        waited=$((waited + 5))
+    done
 
     log_info "Waiting for operator to roll out profile (replica rollouts)..."
     local rollout_ok=true
@@ -163,7 +185,7 @@ apply_perf_profile_config() {
     _verify_replicas "${release}-kruize"                 "1"                             "${ros_workloads_required}"
 
     if [[ "${verified}" == "true" ]]; then
-        log_success "All replica counts verified for ${PERF_PROFILE} profile"
+        log_success "All replica counts verified for ${profile} profile"
     else
         log_warning "Some replica counts did not match — tests may not reflect expected scaling"
     fi

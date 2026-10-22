@@ -27,17 +27,24 @@ assert_not_contains() {
 run_profile() {
   local profile="$1"
   (
+    if [[ "$profile" == "__unset__" ]]; then unset PERF_PROFILE; fi
     log_info() { echo "$*"; }
     log_step() { echo "$*"; }
     log_success() { echo "$*"; }
     log_warning() { echo "$*"; }
     log_error() { echo "$*"; }
     log_verbose() { :; }
-    export NAMESPACE=test-ns CMSC_NAME=test-cmsc DRY_RUN=true PERF_PROFILE="$profile"
+    export NAMESPACE=test-ns CMSC_NAME=test-cmsc DRY_RUN=true
+    if [[ "$profile" != "__unset__" ]]; then export PERF_PROFILE="$profile"; fi
     # shellcheck source=lib/perf-testing.sh
     source "${ROOT}/scripts/lib/perf-testing.sh"
     apply_perf_profile_config
-  ) 2>&1
+  ) 2>&1 || true
+}
+
+# Extract the -p JSON from the dry-run oc patch line.
+patch_json() {
+  sed -n "s/.*--type merge -p '\\(.*\\)'.*/\\1/p" <<<"$1" | head -1
 }
 
 out="$(run_profile large)"
@@ -48,6 +55,23 @@ assert_contains "$out" '"maxUploadSize":null' "large: nulls ingress maxUploadSiz
 assert_contains "$out" '"ocp":{"replicas":null,"resources":null}' "large: nulls ocp worker overrides"
 assert_not_contains "$out" '"kruize":{"replicas"' "large: kruize replicas not nulled"
 assert_contains "$out" "listener=3 ocp=3 summary=3 ros-processor=3 kruize=1" "large: expected replicas"
+
+pj="$(patch_json "$out")"
+if ! jq -e '.spec.profile == "large"
+  and (.spec.kruize | has("replicas") | not)
+  and .spec.kruize.resources == null
+  and (.spec.ingress | has("maxUploadSize") and .maxUploadSize == null)
+  and (.spec.costManagement.celery.workers.ocp | has("replicas") and .replicas == null)' <<<"$pj" >/dev/null; then
+  echo "FAIL: large: patch JSON invalid or wrong shape: ${pj}" >&2; fail=1
+fi
+assert_contains "$out" "would wait up to 300s for CMSC status.observedGeneration" "large: wait step announced"
+
+out="$(run_profile __unset__)"
+assert_contains "$out" '"profile":"small"' "unset PERF_PROFILE maps to small"
+
+out="$(run_profile bogus)"
+assert_contains "$out" "Unknown PERF_PROFILE 'bogus'" "unknown profile fails fast"
+assert_not_contains "$out" "oc patch" "unknown profile does not patch"
 
 out="$(run_profile baseline)"
 assert_contains "$out" '"profile":"small"' "baseline maps to small"
