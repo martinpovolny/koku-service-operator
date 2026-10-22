@@ -20,6 +20,9 @@ spec:
     - jsonPath: .status.phase
       name: Phase
       type: string
+    - jsonPath: .status.profile
+      name: Profile
+      type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
@@ -2889,6 +2892,16 @@ spec:
                 - Progressing
                 - Ready
                 - Degraded
+                type: string
+              profile:
+                description: |-
+                  Profile is the effective sizing tier applied by the operator
+                  (spec.profile, or small when unset).
+                enum:
+                - small
+                - medium
+                - large
+                - xlarge
                 type: string
             type: object
         type: object

@@ -186,6 +186,7 @@ func (r *CostManagementServiceConfigReconciler) markPaused(cfg *costv1alpha1.Cos
 	r.setCondition(cfg, costv1alpha1.ConditionProgressing, metav1.ConditionFalse,
 		"Paused", "reconciliation paused via annotation")
 	cfg.Status.ObservedGeneration = cfg.Generation
+	cfg.Status.Profile = resources.EffectiveProfile(cfg)
 	if r.Recorder != nil {
 		r.Recorder.Event(cfg, corev1.EventTypeNormal, "Paused",
 			"Reconciliation paused; remove the pause annotation to resume")
@@ -262,6 +263,7 @@ func (r *CostManagementServiceConfigReconciler) reconcile(ctx context.Context, c
 	// first Ready transition at the end of this pass.
 	priorPhase := cfg.Status.Phase
 	cfg.Status.ObservedGeneration = cfg.Generation
+	cfg.Status.Profile = resources.EffectiveProfile(cfg)
 	cfg.Status.Phase = costv1alpha1.PhaseProgressing
 	r.setCondition(cfg, costv1alpha1.ConditionProgressing, metav1.ConditionTrue, "Reconciling", "Reconciliation in progress")
 

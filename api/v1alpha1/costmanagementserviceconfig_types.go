@@ -764,6 +764,11 @@ type CostManagementServiceConfigStatus struct {
 
 	// ObservedGeneration is the metadata.generation last reconciled.
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+
+	// Profile is the effective sizing tier applied by the operator
+	// (spec.profile, or small when unset).
+	// +optional
+	Profile Profile `json:"profile,omitempty"`
 }
 
 // -----------------------------------------------------------------------------
@@ -776,6 +781,7 @@ type CostManagementServiceConfigStatus struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Namespaced,shortName=cmsc
 // +kubebuilder:printcolumn:name="Phase",type=string,JSONPath=`.status.phase`
+// +kubebuilder:printcolumn:name="Profile",type=string,JSONPath=`.status.profile`
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 type CostManagementServiceConfig struct {
 	metav1.TypeMeta   `json:",inline"`
