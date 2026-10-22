@@ -3,7 +3,6 @@ package resources
 import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
@@ -39,7 +38,7 @@ func KokuAPIDeployment(cfg *costv1alpha1.CostManagementServiceConfig) *appsv1.De
 	env = MergeEnv(env, spec.Env)
 
 	d := deploymentWithContainerName(cfg, NameKokuAPI(cfg), "cost-management-api", containerName,
-		image, replicas, spec.Resources,
+		image, replicas, ProfileResources(cfg, WorkloadKokuAPI, spec.Resources),
 		kokuAPIProbe("/livez"), kokuAPIProbe("/readyz"), env,
 		[]string{"/bin/bash", "-c", "cd $APP_HOME && exec gunicorn -c gunicorn_conf.py --max-requests=1000 koku.wsgi"},
 	)
@@ -98,7 +97,7 @@ func MasuDeployment(cfg *costv1alpha1.CostManagementServiceConfig) *appsv1.Deplo
 	env = MergeEnv(env, spec.Env)
 
 	d := deploymentWithContainerName(cfg, NameMasu(cfg), "cost-processor", containerName,
-		image, replicas, spec.Resources,
+		image, replicas, ProfileResources(cfg, WorkloadMasu, spec.Resources),
 		masuProbe("/livez"), masuProbe("/readyz"), env,
 		[]string{"/bin/bash", "-c", "cd $APP_HOME && exec gunicorn -c gunicorn_conf.py --max-requests=1000 koku.wsgi"},
 	)
@@ -148,7 +147,7 @@ func ListenerDeployment(cfg *costv1alpha1.CostManagementServiceConfig) *appsv1.D
 	)
 	env = MergeEnv(env, spec.Env)
 
-	return deployment(cfg, NameListener(cfg), "listener", image, replicas, spec.Resources,
+	return deployment(cfg, NameListener(cfg), "listener", image, replicas, ProfileResources(cfg, WorkloadListener, spec.Resources),
 		nil, nil, env,
 		[]string{"/bin/bash", "-c", "cd $APP_HOME && exec python manage.py listener"},
 	)
@@ -169,16 +168,7 @@ func CeleryBeatDeployment(cfg *costv1alpha1.CostManagementServiceConfig) *appsv1
 		EnvVal("CELERY_LOG_LEVEL", "info"),
 	)
 
-	resources := corev1.ResourceRequirements{
-		Requests: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("50m"),
-			corev1.ResourceMemory: resource.MustParse("200Mi"),
-		},
-		Limits: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("100m"),
-			corev1.ResourceMemory: resource.MustParse("400Mi"),
-		},
-	}
+	resources := ProfileResources(cfg, WorkloadCeleryBeat, corev1.ResourceRequirements{})
 
 	return deployment(cfg, NameCeleryBeat(cfg), "cost-scheduler", image, replicas,
 		resources, nil, nil, env,
@@ -215,7 +205,7 @@ func CeleryWorkerDeployment(cfg *costv1alpha1.CostManagementServiceConfig, queue
 		EnvVal("CELERY_WORKER_CONCURRENCY", int32String(concurrency)),
 	)
 
-	d := deployment(cfg, NameCeleryWorker(cfg, queue), component, image, replicas, spec.Resources,
+	d := deployment(cfg, NameCeleryWorker(cfg, queue), component, image, replicas, ProfileResources(cfg, CeleryWorkload(queue), spec.Resources),
 		nil, nil, env,
 		[]string{
 			"/bin/sh", "-c",

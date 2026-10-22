@@ -230,7 +230,7 @@ func EnvoyDeployment(cfg *costv1alpha1.CostManagementServiceConfig) *appsv1.Depl
 							PeriodSeconds:       10,
 							TimeoutSeconds:      3,
 						},
-						Resources:       cfg.Spec.Auth.Envoy.Resources,
+						Resources:       ProfileResources(cfg, WorkloadEnvoy, cfg.Spec.Auth.Envoy.Resources),
 						SecurityContext: restrictedContainerSC(),
 					}},
 					Volumes: envoyVolumes(cfg),

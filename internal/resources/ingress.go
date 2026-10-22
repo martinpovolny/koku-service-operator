@@ -145,7 +145,7 @@ func IngressDeployment(cfg *costv1alpha1.CostManagementServiceConfig) *appsv1.De
 						Env:             env,
 						LivenessProbe:   livenessProbe,
 						ReadinessProbe:  readinessProbe,
-						Resources:       spec.Resources,
+						Resources:       ProfileResources(cfg, WorkloadIngress, spec.Resources),
 						VolumeMounts:    mounts,
 						SecurityContext: restrictedContainerSC(),
 					}},
