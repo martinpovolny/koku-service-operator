@@ -274,3 +274,24 @@ func TestSampleCRs_CommunityPublicImages(t *testing.T) {
 		t.Error("community sample cache.deploy: want true (bundled/dev path)")
 	}
 }
+
+func TestProductionSampleUsesLargeProfile(t *testing.T) {
+	t.Parallel()
+	cfg := loadSampleCR(t, sampleProduction)
+	if cfg.Spec.Profile != ProfileLarge {
+		t.Errorf("profile = %q, want %q", cfg.Spec.Profile, ProfileLarge)
+	}
+	// One explicit resources override remains as the precedence example.
+	res := cfg.Spec.CostManagement.Listener.Resources
+	if len(res.Requests) == 0 && len(res.Limits) == 0 {
+		t.Error("listener resources override missing; sample should demonstrate precedence over the profile")
+	}
+	// Overrides that merely duplicate the profile were dropped.
+	api := cfg.Spec.CostManagement.API
+	if api.Replicas != nil || len(api.Resources.Requests) != 0 || len(api.Resources.Limits) != 0 {
+		t.Error("koku api replicas/resources should come from the large profile, not the sample")
+	}
+	if cfg.Spec.Monitoring.Enabled == nil || !*cfg.Spec.Monitoring.Enabled {
+		t.Error("monitoring.enabled should stay true in the production sample")
+	}
+}

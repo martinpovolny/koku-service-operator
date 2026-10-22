@@ -27,7 +27,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	costv1alpha1 "github.com/project-koku/koku-service-operator/api/v1alpha1"
-	"github.com/project-koku/koku-service-operator/internal/resources"
 )
 
 var _ = Describe("CMSC drift correction", Label("cmsc", "drift"), func() {
@@ -43,10 +42,7 @@ var _ = Describe("CMSC drift correction", Label("cmsc", "drift"), func() {
 		}
 
 		cmsc := getCMSC()
-		desired := resources.ProfileReplicas(cmsc, resources.WorkloadKokuAPI, cmsc.Spec.CostManagement.API.Replicas)
-		if desired == 0 {
-			desired = 1
-		}
+		desired := desiredAPIReplicas(cmsc)
 		driftReplicas := desired + 2
 
 		By("recording desired replica count from CMSC spec")
