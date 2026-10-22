@@ -42,7 +42,7 @@
 
 | Task | Status | Commit / PR | Notes |
 |------|--------|-------------|-------|
-| 1. Profile enum + sizing table | ☐ todo | | |
+| 1. Profile enum + sizing table | ✅ done | 5626b2a, 9fdec8c | review clean; prod sample enum bumped ha→large early (T6 finishes it) |
 | 2. Replica pointers + replica wiring | ☐ todo | | |
 | 3. Resource wiring in builders | ☐ todo | | |
 | 4. Ingress / gateway knobs + Envoy HCM parity | ☐ todo | | |
