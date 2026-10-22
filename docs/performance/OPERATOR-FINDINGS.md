@@ -18,7 +18,7 @@ addressed. Finding statuses are intentionally fixed at the time of discovery
 
 ### PERF-FINDING-039: `apply_perf_profile_config` Phase 1 Is a Stub — Resource Overrides Not Applied on Operator Path
 
-**Status**: Open — CMSC patch automation needed
+**Status**: Resolved (COST-8095) — the harness now patches `spec.profile` on the CMSC; the operator derives sizing from it
 **Severity**: Medium
 **Related Jira**: [COST-8154](https://redhat.atlassian.net/browse/COST-8154) (Translate chart sizing guide to operator CMSC configuration)
 **Test run**: `main-small-api+rbac+ingestion-1789657257`
@@ -110,7 +110,7 @@ oc patch cmsc cost-onprem -n cost-onprem --type=merge -p '{
 
 ### PERF-FINDING-040: `celery-worker-ocp` OOMKilled at Default Namespace LimitRange (512Mi)
 
-**Status**: Mitigated by cluster patch; permanent fix needed in CMSC default
+**Status**: Resolved (COST-8095) — CMSC default fixed by `small` ocp worker 512Mi/1Gi
 **Severity**: High
 **Related Jira**: [COST-8154](https://redhat.atlassian.net/browse/COST-8154)
 
@@ -153,8 +153,8 @@ limits:   {cpu: 500m, memory: 1Gi}
 
 | Finding | Summary | Jira | Status |
 |---------|---------|------|--------|
-| FINDING-039 | Phase 1 profile application stub — ING-003 concurrent failures | [COST-8154](https://redhat.atlassian.net/browse/COST-8154) | Open |
-| FINDING-040 | celery-worker-ocp OOMKill at LimitRange default 512Mi | [COST-8154](https://redhat.atlassian.net/browse/COST-8154) | Mitigated (cluster patch); fix needed in operator default |
+| FINDING-039 | Phase 1 profile application stub — ING-003 concurrent failures | [COST-8154](https://redhat.atlassian.net/browse/COST-8154) | Resolved (COST-8095) |
+| FINDING-040 | celery-worker-ocp OOMKill at LimitRange default 512Mi | [COST-8154](https://redhat.atlassian.net/browse/COST-8154) | Resolved (COST-8095): CMSC default fixed by `small` ocp worker 512Mi/1Gi |
 
 **Parent epic**: [COST-8148](https://redhat.atlassian.net/browse/COST-8148) (Operator performance testing)
 
