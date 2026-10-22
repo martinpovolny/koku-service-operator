@@ -303,3 +303,54 @@ func TestProductionSampleUsesLargeProfile(t *testing.T) {
 		t.Error("monitoring.enabled should stay true in the production sample")
 	}
 }
+
+// findReplicaPins returns the dotted paths of every "replicas" key in a decoded
+// YAML tree.
+func findReplicaPins(node any, path string) []string {
+	var out []string
+	switch v := node.(type) {
+	case map[string]any:
+		for k, child := range v {
+			p := path + "." + k
+			if k == "replicas" {
+				out = append(out, p)
+			}
+			out = append(out, findReplicaPins(child, p)...)
+		}
+	case []any:
+		for _, child := range v {
+			out = append(out, findReplicaPins(child, path)...)
+		}
+	}
+	return out
+}
+
+// The default sample is alm-examples[0] in the OLM bundle, so it must let the
+// profile drive sizing rather than pinning replicas.
+func TestSampleCRs_ProfileDrivesReplicas(t *testing.T) {
+	t.Parallel()
+	for _, name := range []string{
+		sampleDefault,
+		sampleCommunity,
+		"service.costmanagement_v1alpha1_costmanagementserviceconfig_byoi.yaml",
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			cfg := loadSampleCR(t, name)
+			if cfg.Spec.Profile != ProfileSmall {
+				t.Errorf("profile = %q, want %q", cfg.Spec.Profile, ProfileSmall)
+			}
+			data, err := os.ReadFile(samplePath(name))
+			if err != nil {
+				t.Fatal(err)
+			}
+			var tree map[string]any
+			if err := yaml.Unmarshal(data, &tree); err != nil {
+				t.Fatal(err)
+			}
+			if pins := findReplicaPins(tree, ""); len(pins) != 0 {
+				t.Errorf("replica pins defeat spec.profile: %v", pins)
+			}
+		})
+	}
+}
