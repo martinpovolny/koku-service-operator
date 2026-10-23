@@ -50,8 +50,22 @@
 | 6. Samples + e2e helpers | ✅ done | 1821a55, 05c0726 | review clean after 1 fix round (sample listener override must not downgrade `large` memory) |
 | 7. Perf harness uses `spec.profile` | ✅ done | 89cdb40, bd709cc | review clean after 1 fix round (wait for status.observedGeneration + status.profile before verifying); polling untested until Task 10 |
 | 8. Docs | ✅ done | 17164fe, 9518372, 47f8f2b | review clean after 2 fix rounds; mapping doc now points at design §5 instead of duplicating per-tier YAML |
-| 9. Final verification + PR | 🔄 Steps 1-5 ✅ | | no drift; make test / test-scripts / lint / govulncheck green; profiles.go 100%. Steps 6-7 (push/PR/Jira) after Task 10 + user OK |
+| 9. Final verification + PR | 🔄 Steps 1-5 ✅, re-run green after Task 10 | | push + PR approved by user 2026-10-23 |
 | 10. Cluster Bot end-to-end validation | ✅ done | 775acb6, 0738a1a, 37a6aac, 37220cf (fixes found live) | chat-bot-qdbjn 2026-10-23, image cost-8095-37220cf; see Results below |
+
+## Follow-ups (not in the COST-8095 PR)
+
+Found during review and the Cluster Bot run; deliberately left out of scope.
+Track as tickets when picked up.
+
+| # | Follow-up | Why / where |
+|---|-----------|-------------|
+| F1 | Direct builder tests for profile-driven replicas of UI, Masu, RBAC API/worker and Kruize | Covered today only indirectly (table tests + small/xlarge builder tests); one-line `ProfileReplicas` calls |
+| F2 | `scripts/perf-testing_test.sh` `run_profile` helper swallows exit codes (`\|\| true`) | A regression in the unknown-profile fail-fast path would only show in output text, not the exit status |
+| F3 | Release note: stored CRs carrying `profile: standard\|ha` or old CRD-written defaults (`replicas: 1`, `maxUploadSize`) | Old enum values are rejected on update; stored numeric defaults now act as explicit pins and override the profile. Beta, no migration — just tell users to drop them |
+| F4 | Re-check D19 worker memory against the current koku image when it changes | D19 deviates from chart values because koku `422f758` workers idle at ~750Mi; a lighter image could allow the chart numbers again |
+| F5 | Sources API validation returns 201 instead of 400 (duplicate `cluster_id`, missing `source_ref`) | 2 pytest failures in the Cluster Bot run; koku application behaviour, unrelated to sizing |
+| F6 | COST-8153 / COST-8154 (Thomas): fuller rewrite of the mapping doc and an operator sizing guide on top of the implemented tiers | This PR only points the docs at design §5 |
 
 ## Decision log
 

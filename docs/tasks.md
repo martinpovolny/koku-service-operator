@@ -95,7 +95,7 @@ Short version: bundled infra is dev-only (intentional), profile-based sizing for
 
 | Ticket | Summary | Notes |
 |--------|---------|-------|
-| [COST-8095](https://redhat.atlassian.net/browse/COST-8095) | `spec.profile` sizing maps | ✅ Done. Validated `small|medium|large|xlarge` sizing tiers for Cost workloads (resources, replicas, ingress limits, Envoy/HAProxy timeouts); explicit CR fields override; `status.profile` reports the effective tier. ROS/Kruize rows stay with COST-8054. See [design](design/profile-sizing-maps.md). See [jira snapshot](jira/COST-8095.md). |
+| [COST-8095](https://redhat.atlassian.net/browse/COST-8095) | `spec.profile` sizing maps | ✅ Done. Validated `small|medium|large|xlarge` sizing tiers for Cost workloads (resources, replicas, ingress limits, Envoy/HAProxy timeouts); explicit CR fields override; `status.profile` reports the tier whose sized workloads were applied for the current generation. ROS/Kruize rows stay with COST-8054. See [design](design/profile-sizing-maps.md). See [jira snapshot](jira/COST-8095.md). |
 | [COST-8103](https://redhat.atlassian.net/browse/COST-8103) | `CoreServicesAvailable` / mid-pipeline `Available` | Sparse success Events (`Ready`); stop treating Koku-API-up as product-available. See [jira snapshot](jira/COST-8103.md). |
 | [COST-8125](https://redhat.atlassian.net/browse/COST-8125) | GA install/config guide remainder | Certified versions, full-stack sizing-profile docs, backup, complete NP/monitoring, OperatorHub, confirmed CMMO contract. Parent [COST-7700](jira/COST-7700.md). See [jira snapshot](jira/COST-8125.md). |
 

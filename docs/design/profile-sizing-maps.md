@@ -59,7 +59,7 @@ The running decision log, with rationale and dates, is in
 - Default install (`profile` omitted → `small`) reproduces the chart's
   `values.yaml` sizing, except the documented D19 worker-memory deviation (§5.1).
 - `medium`/`large`/`xlarge` reproduce `small` + the corresponding chart overlay.
-- Effective profile visible in status.
+- Applied profile visible in status (`status.profile`, §3.4).
 
 **Non-goals**
 
@@ -81,7 +81,8 @@ The running decision log, with rationale and dates, is in
 **Anti-goals (would make this a failure even if it works)**
 
 - Inventing numbers. Every value must trace to the chart `values*.yaml`
-  files, except the documented D19 worker-memory deviation (§5.1). Where an overlay doesn't mention a workload, it inherits `small`.
+  files, except the documented D19 worker-memory deviation (§5.1). Where
+  an overlay doesn't mention a workload, it inherits `small`.
 - Profile silently overriding an explicit CR value.
 - A half-merged resources block (e.g. user limit + profile request) that the
   API server rejects because request > limit.
@@ -293,7 +294,9 @@ binary units, as written in the chart. `req` = requests, `lim` = limits.
 | Kruize | `resources.kruize` | 1 | 1000m / 2000m | 1Gi / 2Gi |
 | Kruize partitions (init + delete CronJob) | `kruize.partitions` | – | 100m / 300m | 256Mi / 512Mi |
 
-† Deviates from chart values.yaml (D19): chart's 200Mi/400Mi, 256Mi/512Mi, 512Mi/1Gi limits OOM at boot on koku image 422f758 — healthy workers idle at ~750Mi (Cluster Bot run 2026-10-23).
+† Deviates from chart values.yaml (D19): chart's 200Mi/400Mi, 256Mi/512Mi,
+512Mi/1Gi limits OOM at boot on koku image 422f758 — healthy workers idle at
+~750Mi (Cluster Bot run 2026-10-23).
 
 Non-resource knobs (`small`): `maxUploadSize` 104857600 (100 MB),
 `maxMemory` 33554432 (32 MB), Envoy ingress timeout `180s`, per-try `60s`,

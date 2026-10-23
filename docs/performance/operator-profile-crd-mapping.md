@@ -32,7 +32,7 @@ Key constraints from performance findings that affect operator design:
 `large`, or `xlarge`, matching the chart's four tiers. It supplies defaults for
 resources, replicas, ingress upload limits, Envoy ingress timeouts, and the
 HAProxy route timeout. Any explicit CR field overrides the profile value, and
-`status.profile` reports the effective tier. Replica fields and
+`status.profile` reports the tier whose sized workloads were applied for the current generation. Replica fields and
 `spec.ingress.maxUploadSize` have no CRD defaults; the profile supplies them.
 Authoritative behaviour and tables:
 [profile-sizing-maps.md](../design/profile-sizing-maps.md).
