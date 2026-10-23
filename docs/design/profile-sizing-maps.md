@@ -57,7 +57,7 @@ The running decision log, with rationale and dates, is in
   in-scope workload (§5).
 - Every in-scope builder consults it when the corresponding CR field is unset.
 - Default install (`profile` omitted → `small`) reproduces the chart's
-  `values.yaml` sizing exactly.
+  `values.yaml` sizing, except the documented D19 worker-memory deviation (§5.1).
 - `medium`/`large`/`xlarge` reproduce `small` + the corresponding chart overlay.
 - Effective profile visible in status.
 
@@ -81,7 +81,7 @@ The running decision log, with rationale and dates, is in
 **Anti-goals (would make this a failure even if it works)**
 
 - Inventing numbers. Every value must trace to the chart `values*.yaml`
-  files. Where an overlay doesn't mention a workload, it inherits `small`.
+  files, except the documented D19 worker-memory deviation (§5.1). Where an overlay doesn't mention a workload, it inherits `small`.
 - Profile silently overriding an explicit CR value.
 - A half-merged resources block (e.g. user limit + profile request) that the
   API server rejects because request > limit.
@@ -181,8 +181,16 @@ needed for parity of the timeouts above.
 
 ### 3.4 Status
 
-Add `status.profile` (`Profile`) — the effective tier the last successful
-reconcile applied. Add a printer column `Profile` for `oc get cmsc`.
+Add `status.profile` (`Profile`) — the tier whose sized workloads were applied
+for the current generation (D20). The controller sets it as soon as the last
+phase that unconditionally applies sized Deployments has run (`reconcileEdge`,
+immediately after the Envoy Deployment is applied), *without* waiting for
+readiness-only gates: Envoy/Route admission, the UI (user-provided OAuth client
+Secret, `UIReady=False` is a normal lab state) or `Progressing=False`. It is
+left unchanged when the pass is paused, or fails/gates before those workloads
+were applied (migration, core-service or worker readiness, validation).
+Consumers that need rollout completion must wait on Deployment rollouts, not on
+this field. Add a printer column `Profile` for `oc get cmsc`.
 
 ### 3.5 Resources (no API change)
 
@@ -263,13 +271,13 @@ binary units, as written in the chart. `req` = requests, `lim` = limits.
 | MASU | `costManagement.masu` | 1 | 250m / 500m | 1Gi / 2Gi |
 | Listener | `costManagement.listener` | 2 | 150m / 300m | 300Mi / 600Mi |
 | Celery Beat | `costManagement.celery.beat` | (hardcoded 1) | 50m / 100m | 200Mi / 400Mi |
-| Worker `default` | `…workers.default` | 1 | 100m / 200m | 200Mi / 400Mi |
+| Worker `default` | `…workers.default` | 1 | 100m / 200m | 1Gi / 2Gi † |
 | Worker `priority` | `…workers.priority` | 1 | 250m / 500m | 1Gi / 2Gi |
-| Worker `refresh` | `…workers.refresh` | **0** | 100m / 200m | 256Mi / 512Mi |
+| Worker `refresh` | `…workers.refresh` | **0** | 100m / 200m | 1Gi / 2Gi † |
 | Worker `summary` | `…workers.summary` | **2** | 250m / 500m | 1Gi / 2Gi |
-| Worker `download` | `…workers.download` | **0** | 200m / 400m | 512Mi / 1Gi |
+| Worker `download` | `…workers.download` | **0** | 200m / 400m | 1Gi / 2Gi † |
 | Worker `ocp` | `…workers.ocp` | **2** | 250m / 500m | 512Mi / 1Gi |
-| Worker `costModel` | `…workers.costModel` | 1 | 100m / 200m | 256Mi / 512Mi |
+| Worker `costModel` | `…workers.costModel` | 1 | 100m / 200m | 1Gi / 2Gi † |
 | RBAC API | `rbac.api` | 1 | 250m / 500m | 512Mi / 1Gi |
 | RBAC worker | `rbac.worker` | 1 | 100m / 500m | 512Mi / 2Gi |
 | RBAC Keycloak sync CronJob | `rbac.keycloakSync` | – | 100m / 250m | 256Mi / 512Mi |
@@ -285,6 +293,8 @@ binary units, as written in the chart. `req` = requests, `lim` = limits.
 | Kruize | `resources.kruize` | 1 | 1000m / 2000m | 1Gi / 2Gi |
 | Kruize partitions (init + delete CronJob) | `kruize.partitions` | – | 100m / 300m | 256Mi / 512Mi |
 
+† Deviates from chart values.yaml (D19): chart's 200Mi/400Mi, 256Mi/512Mi, 512Mi/1Gi limits OOM at boot on koku image 422f758 — healthy workers idle at ~750Mi (Cluster Bot run 2026-10-23).
+
 Non-resource knobs (`small`): `maxUploadSize` 104857600 (100 MB),
 `maxMemory` 33554432 (32 MB), Envoy ingress timeout `180s`, per-try `60s`,
 HAProxy route timeout `180s`. These equal today's operator hardcodes.
@@ -292,7 +302,8 @@ HAProxy route timeout `180s`. These equal today's operator hardcodes.
 **Behaviour changes vs. today's operator defaults** (intentional, chart
 parity): `ocp` and `summary` 1 → 2 replicas; `download` and `refresh` 1 → 0
 (chart comments: OCP uses push via Kafka; refresh only serves
-OCP-on-cloud deletes); every workload above gains requests/limits.
+OCP-on-cloud deletes); every workload above gains requests/limits; the four
+workers marked † get 1Gi/2Gi memory instead of the chart values (D19).
 
 Note: `sizing-guide.md` lists Kruize small as 500m/2000m CPU; the chart
 `values.yaml` (stated source of truth) has 1000m/2000m and memory 1Gi/2Gi.
