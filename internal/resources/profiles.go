@@ -86,18 +86,21 @@ var profileKnobs = map[costv1alpha1.Profile]ProfileKnobs{
 }
 
 func buildProfileTable() map[costv1alpha1.Profile]map[Workload]sizing {
+	// D19: celery/cost_model/refresh/download memory deliberately deviates from
+	// the chart values.yaml (200Mi/400Mi, 256Mi/512Mi, 512Mi/1Gi): those limits
+	// OOM at boot on current koku images; healthy workers idle near 750Mi.
 	small := map[Workload]sizing{
 		WorkloadKokuAPI:              sz(1, res("250m", "1", "1Gi", "2Gi")),
 		WorkloadMasu:                 sz(1, res("250m", "500m", "1Gi", "2Gi")),
 		WorkloadListener:             sz(2, res("150m", "300m", "300Mi", "600Mi")),
 		WorkloadCeleryBeat:           szNoReplicas(res("50m", "100m", "200Mi", "400Mi")),
-		CeleryWorkload("celery"):     sz(1, res("100m", "200m", "200Mi", "400Mi")),
+		CeleryWorkload("celery"):     sz(1, res("100m", "200m", "1Gi", "2Gi")),
 		CeleryWorkload("priority"):   sz(1, res("250m", "500m", "1Gi", "2Gi")),
-		CeleryWorkload("refresh"):    sz(0, res("100m", "200m", "256Mi", "512Mi")),
+		CeleryWorkload("refresh"):    sz(0, res("100m", "200m", "1Gi", "2Gi")),
 		CeleryWorkload("summary"):    sz(2, res("250m", "500m", "1Gi", "2Gi")),
-		CeleryWorkload("download"):   sz(0, res("200m", "400m", "512Mi", "1Gi")),
+		CeleryWorkload("download"):   sz(0, res("200m", "400m", "1Gi", "2Gi")),
 		CeleryWorkload("ocp"):        sz(2, res("250m", "500m", "512Mi", "1Gi")),
-		CeleryWorkload("cost_model"): sz(1, res("100m", "200m", "256Mi", "512Mi")),
+		CeleryWorkload("cost_model"): sz(1, res("100m", "200m", "1Gi", "2Gi")),
 		WorkloadRBACAPI:              sz(1, res("250m", "500m", "512Mi", "1Gi")),
 		WorkloadRBACWorker:           sz(1, res("100m", "500m", "512Mi", "2Gi")),
 		WorkloadKeycloakSync:         szNoReplicas(res("100m", "250m", "256Mi", "512Mi")),
