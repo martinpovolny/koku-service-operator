@@ -86,7 +86,8 @@ Prefer CA Secrets over `insecureSkipVerify` / `sslMode: disable`.
 | UI Route | Passthrough (oauth2-proxy terminates TLS) | Service CA on the UI Service |
 
 Gateway Route host defaults to `{name}-gateway-{namespace}.{clusterDomain}`
-with path `/api` and a 180s router timeout.
+with path `/api`. Its router timeout comes from `spec.profile` (180s for
+`small`/`medium`, 600s for `large`/`xlarge`, see [Sizing profile](#sizing-profile)).
 
 ## NetworkPolicies
 

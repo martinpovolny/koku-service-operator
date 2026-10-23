@@ -93,10 +93,25 @@ ocp_worker_mem_req="512Mi" ocp_worker_mem_lim="1Gi"
 `resources` blocks — an explicit block replaces the profile's values whole, and
 the old suggested patch (default worker limited to `512Mi`) OOMs at boot on
 current koku images (design D19). Set the tier instead; the perf harness does
-this for you via `apply_perf_profile_config`:
+this for you via `apply_perf_profile_config`.
+
+Setting `spec.profile` alone does not clear explicit `replicas`, `resources`
+or ingress fields already on the CR — those still override the profile. To do
+it by hand, clear them in the same merge patch (the harness nulls the same
+paths; `default` covers CRs that applied the old pre-test patch above):
 
 ```bash
-oc patch cmsc cost-onprem -n cost-onprem --type=merge -p '{"spec":{"profile":"small"}}'
+oc patch cmsc cost-onprem -n cost-onprem --type=merge -p '{"spec":{
+  "profile":"small",
+  "costManagement":{
+    "listener":{"replicas":null,"resources":null},
+    "celery":{"workers":{
+      "ocp":{"replicas":null,"resources":null},
+      "summary":{"replicas":null,"resources":null},
+      "default":{"replicas":null,"resources":null}}}},
+  "ros":{"processor":{"replicas":null,"resources":null}},
+  "kruize":{"resources":null},
+  "ingress":{"maxUploadSize":null,"maxMemory":null}}}'
 ```
 
 ---
