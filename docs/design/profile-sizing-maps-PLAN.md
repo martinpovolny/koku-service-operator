@@ -77,6 +77,8 @@ Newest last. Each entry: date · decision · why · source.
 | D16 | 2026-10-22 | No extra CEL guards on overrides (Kruize CPU ≥ 2000m, upload caps, timeout floors) | Overrides are the customer's call | Claude's call |
 | D17 | 2026-10-22 | Every API-changing task regenerates the OLM bundle (`make bundle IMAGE_SHA=<committed containerImage>`) | CI `bundle-validate` regenerates and fails on drift; bundle CRD carries `spec.profile` | Claude's call (found during Task 2) |
 | D18 | 2026-10-22 | Validate the whole branch on a live cluster before opening the PR — Cluster Bot 3+3 (CRC only as fallback) | Unit/envtest can't prove scheduling, rollouts or real uploads; 3 workers can actually schedule `large` | User |
+| D19 | 2026-10-23 | Celery workers `celery` (default), `cost_model`, `refresh`, `download`: memory 1Gi/2Gi (req/lim) in every tier, overriding chart values | Live Cluster Bot run: `celery`/`cost_model` OOMKilled at boot at chart limits 400Mi/512Mi; healthy workers idle at ~750Mi on operator koku image 422f758 (chart values reference image 03b958b); koku hardcodes concurrency 1 | User (recommended by Claude, Task 10 evidence) |
+| D20 | 2026-10-23 | `status.profile` = tier whose sized workloads were applied for the current generation, set once the workload-applying phases succeed, even if later readiness gates (e.g. UIReady) are False | Lab setups without the UI OAuth secret never reach full success, so the 'fully successful pass' rule left status.profile empty forever; health is Available/Degraded's job | User (recommended by Claude, Task 10 evidence) |
 
 ---
 
