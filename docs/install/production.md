@@ -57,9 +57,12 @@ operators (AMQ Streams, ODF, and so on). This operator does not manage them.
 
 ## Resource tuning
 
-Set requests/limits on the components you care about. The production sample
-uses replica `2` on API, Masu, Listener, Envoy, RBAC, and UI, and raises Celery
-worker replica counts on the on-prem queues.
+Start from `spec.profile` and override only the components you care about.
+The production sample sets no replica counts: under `large` that gives API,
+Masu, RBAC and UI 1 replica, Listener and the `ocp`/`summary` Celery workers 3,
+and Envoy 2 (full table in [design §5](../design/profile-sizing-maps.md)).
+Set `replicas` or `resources` on a component only when you need to diverge from
+the tier.
 
 SaaS-only Celery queues (`hcs`, `subsExtraction`, `subsTransmission`) default
 to `replicas: 0`. Leave them at zero.

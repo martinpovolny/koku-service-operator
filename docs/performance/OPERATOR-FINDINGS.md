@@ -89,21 +89,14 @@ ocp_worker_mem_req="512Mi" ocp_worker_mem_lim="1Gi"
    blocking error if the CMSC `resources` fields are empty and `--perf-only`
    is used.
 
-**Suggested CMSC patch for small profile pre-test**:
+**Pre-test setup (current, COST-8095)**: do not patch explicit Celery
+`resources` blocks — an explicit block replaces the profile's values whole, and
+the old suggested patch (default worker limited to `512Mi`) OOMs at boot on
+current koku images (design D19). Set the tier instead; the perf harness does
+this for you via `apply_perf_profile_config`:
+
 ```bash
-oc patch cmsc cost-onprem -n cost-onprem --type=merge -p '{
-  "spec": {
-    "costManagement": {
-      "celery": {
-        "workers": {
-          "ocp":     {"resources": {"requests": {"cpu":"250m","memory":"512Mi"}, "limits": {"cpu":"500m","memory":"1Gi"}}},
-          "summary": {"resources": {"requests": {"cpu":"250m","memory":"512Mi"}, "limits": {"cpu":"500m","memory":"1Gi"}}},
-          "default": {"resources": {"requests": {"cpu":"100m","memory":"256Mi"}, "limits": {"cpu":"500m","memory":"512Mi"}}}
-        }
-      }
-    }
-  }
-}'
+oc patch cmsc cost-onprem -n cost-onprem --type=merge -p '{"spec":{"profile":"small"}}'
 ```
 
 ---
