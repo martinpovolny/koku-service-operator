@@ -97,7 +97,7 @@ apply_perf_profile_config() {
 
     if [[ "${DRY_RUN:-false}" == "true" ]]; then
         log_info "DRY RUN: oc patch cmsc ${release} -n ${namespace} --type merge -p '${patch}'"
-        log_info "DRY RUN: would wait up to 300s for CMSC status.observedGeneration == metadata.generation and status.profile == ${profile} and condition Progressing == False"
+        log_info "DRY RUN: would wait up to 600s for CMSC status.observedGeneration == metadata.generation and status.profile == ${profile}"
         log_info "DRY RUN: would verify replicas: listener=${listener_replicas} ocp=${ocp_worker_replicas} summary=${summary_worker_replicas} ros-processor=${ros_processor_replicas} kruize=1"
         return 0
     fi
@@ -110,22 +110,22 @@ apply_perf_profile_config() {
 
     # Wait for the operator to reconcile the new profile before looking at
     # Deployments; otherwise rollout/verify can read the pre-patch state.
-    log_info "Waiting for operator to observe profile ${profile} (up to 300s)..."
-    local waited=0 gen observed status_profile progressing
+    log_info "Waiting for operator to observe profile ${profile} (up to 600s)..."
+    local waited=0 gen observed status_profile
     while true; do
         gen="$(perf_kubectl get cmsc "${release}" -n "${namespace}" -o jsonpath='{.metadata.generation}' 2>/dev/null || true)"
         observed="$(perf_kubectl get cmsc "${release}" -n "${namespace}" -o jsonpath='{.status.observedGeneration}' 2>/dev/null || true)"
         status_profile="$(perf_kubectl get cmsc "${release}" -n "${namespace}" -o jsonpath='{.status.profile}' 2>/dev/null || true)"
-        # The controller sets Progressing=False/ReconcileComplete only at the end
-        # of a fully successful pass, which is also the only time it writes
-        # status.profile (design section 3.4).
-        progressing="$(perf_kubectl get cmsc "${release}" -n "${namespace}" -o jsonpath='{.status.conditions[?(@.type=="Progressing")].status}' 2>/dev/null || true)"
-        if [[ -n "${gen}" && "${gen}" == "${observed}" && "${status_profile}" == "${profile}" && "${progressing}" == "False" ]]; then
-            log_info "  operator observed generation ${gen}, status.profile=${status_profile}, Progressing=${progressing}"
+        # status.profile is written once the sized workloads were applied for
+        # the current generation, even if readiness-only gates (UI OAuth Secret,
+        # Progressing) are unmet, so do not wait on Progressing (design 3.4).
+        # Rollout readiness is checked by the waits below.
+        if [[ -n "${gen}" && "${gen}" == "${observed}" && "${status_profile}" == "${profile}" ]]; then
+            log_info "  operator observed generation ${gen}, status.profile=${status_profile}"
             break
         fi
-        if (( waited >= 300 )); then
-            log_error "Timed out waiting for CMSC ${namespace}/${release} to report profile ${profile} (generation=${gen:-?} observedGeneration=${observed:-?} status.profile=${status_profile:-?} Progressing=${progressing:-?})"
+        if (( waited >= 600 )); then
+            log_error "Timed out waiting for CMSC ${namespace}/${release} to report profile ${profile} (generation=${gen:-?} observedGeneration=${observed:-?} status.profile=${status_profile:-?})"
             return 1
         fi
         sleep 5

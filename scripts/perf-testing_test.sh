@@ -64,8 +64,8 @@ if ! jq -e '.spec.profile == "large"
   and (.spec.costManagement.celery.workers.ocp | has("replicas") and .replicas == null)' <<<"$pj" >/dev/null; then
   echo "FAIL: large: patch JSON invalid or wrong shape: ${pj}" >&2; fail=1
 fi
-assert_contains "$out" "would wait up to 300s for CMSC status.observedGeneration" "large: wait step announced"
-assert_contains "$out" "condition Progressing == False" "large: wait step requires Progressing=False"
+assert_contains "$out" "would wait up to 600s for CMSC status.observedGeneration" "large: wait step announced"
+assert_not_contains "$out" "Progressing" "large: wait step does not depend on Progressing"
 
 out="$(run_profile __unset__)"
 assert_contains "$out" '"profile":"small"' "unset PERF_PROFILE maps to small"

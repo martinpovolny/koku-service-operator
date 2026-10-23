@@ -34,7 +34,7 @@ It sizes the Cost workloads the operator runs: CPU/memory requests and limits, r
 ingress upload limits (`spec.ingress.maxUploadSize`, `spec.ingress.maxMemory`),
 Envoy ingress timeouts (`spec.auth.envoy.ingressTimeout`,
 `spec.auth.envoy.ingressPerTryTimeout`), and the HAProxy route timeout. The
-effective tier is reported in `status.profile`. BYOI infrastructure, the
+tier whose sized workloads were applied is reported in `status.profile`. BYOI infrastructure, the
 dev-only bundled DB/cache, migration Jobs, and SaaS Celery queues are outside
 profiles; ROS API/poller/housekeeper stay at `small`. The exact set is in
 [design §5](../design/profile-sizing-maps.md).

@@ -15,11 +15,23 @@ import (
 	costv1alpha1 "github.com/project-koku/koku-service-operator/api/v1alpha1"
 )
 
-// status.profile is "the effective tier the last successful reconcile applied"
-// (design §3.4), so it is written only after every phase completed.
+// status.profile is "the tier whose sized workloads were applied for the current
+// generation" (design §3.4, D20): written by markProfileApplied once the last
+// sized-workload phase has applied them, even if later readiness-only gates
+// (UI, Progressing) are not yet satisfied. Test phases that stand in for the
+// workload-applying phases call it themselves.
 
-func okPhases(context.Context, *costv1alpha1.CostManagementServiceConfig) []PhaseFn {
-	return []PhaseFn{func() (Result, error) { return Result{}, nil }}
+func (r *CostManagementServiceConfigReconciler) appliedPhases(_ context.Context, cfg *costv1alpha1.CostManagementServiceConfig) []PhaseFn {
+	return []PhaseFn{func() (Result, error) { r.markProfileApplied(cfg); return Result{}, nil }}
+}
+
+// uiGatedPhases applies the sized workloads, then stops on the UI gate
+// (UIReady=False, the normal Cluster Bot state without an OAuth client Secret).
+func (r *CostManagementServiceConfigReconciler) uiGatedPhases(_ context.Context, cfg *costv1alpha1.CostManagementServiceConfig) []PhaseFn {
+	return []PhaseFn{
+		func() (Result, error) { r.markProfileApplied(cfg); return Result{}, nil },
+		func() (Result, error) { return Result{RequeueAfter: requeueSlow}, nil },
+	}
 }
 
 func failPhases(context.Context, *costv1alpha1.CostManagementServiceConfig) []PhaseFn {
@@ -64,7 +76,7 @@ func statusProfile(t *testing.T, c client.Client, key types.NamespacedName) cost
 func TestStatusProfile_SuccessReportsAppliedTier(t *testing.T) {
 	cr := minimalCR(testCRName, testNamespace)
 	r, c, key := newProfileReconciler(t, cr)
-	r.phasesOverride = okPhases
+	r.phasesOverride = r.appliedPhases
 
 	reconcileOnce(t, r, key)
 	if got := statusProfile(t, c, key); got != costv1alpha1.ProfileSmall {
@@ -89,7 +101,7 @@ func TestStatusProfile_PausedKeepsPreviousValue(t *testing.T) {
 	cr := minimalCR(testCRName, testNamespace)
 	cr.Spec.Profile = costv1alpha1.ProfileSmall
 	r, c, key := newProfileReconciler(t, cr)
-	r.phasesOverride = okPhases
+	r.phasesOverride = r.appliedPhases
 	reconcileOnce(t, r, key)
 
 	cur := &costv1alpha1.CostManagementServiceConfig{}
@@ -126,7 +138,7 @@ func TestStatusProfile_FailedOrGatedReconcileKeepsPreviousValue(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			cr := minimalCR(testCRName, testNamespace)
 			r, c, key := newProfileReconciler(t, cr)
-			r.phasesOverride = okPhases
+			r.phasesOverride = r.appliedPhases
 			reconcileOnce(t, r, key)
 
 			cur := &costv1alpha1.CostManagementServiceConfig{}
@@ -143,5 +155,38 @@ func TestStatusProfile_FailedOrGatedReconcileKeepsPreviousValue(t *testing.T) {
 				t.Fatalf("status.profile = %q, want previous small", got)
 			}
 		})
+	}
+}
+
+func TestStatusProfile_UIGateUnmetStillReportsAppliedTier(t *testing.T) {
+	cr := minimalCR(testCRName, testNamespace)
+	cr.Spec.Profile = costv1alpha1.ProfileMedium
+	r, c, key := newProfileReconciler(t, cr)
+	r.phasesOverride = r.uiGatedPhases
+
+	reconcileOnce(t, r, key)
+	if got := statusProfile(t, c, key); got != costv1alpha1.ProfileMedium {
+		t.Fatalf("UI gate unmet: status.profile = %q, want medium", got)
+	}
+}
+
+func TestStatusProfile_FailureBeforeWorkloadsKeepsPreviousAcrossGenerations(t *testing.T) {
+	cr := minimalCR(testCRName, testNamespace)
+	r, c, key := newProfileReconciler(t, cr)
+	r.phasesOverride = r.uiGatedPhases
+	reconcileOnce(t, r, key)
+
+	cur := &costv1alpha1.CostManagementServiceConfig{}
+	if err := c.Get(context.Background(), key, cur); err != nil {
+		t.Fatal(err)
+	}
+	cur.Spec.Profile = costv1alpha1.ProfileXLarge
+	if err := c.Update(context.Background(), cur); err != nil {
+		t.Fatal(err)
+	}
+	r.phasesOverride = failPhases
+	reconcileOnce(t, r, key)
+	if got := statusProfile(t, c, key); got != costv1alpha1.ProfileSmall {
+		t.Fatalf("status.profile = %q, want previous small", got)
 	}
 }

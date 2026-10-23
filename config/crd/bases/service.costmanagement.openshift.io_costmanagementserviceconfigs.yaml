@@ -2909,8 +2909,9 @@ spec:
                 type: string
               profile:
                 description: |-
-                  Profile is the effective sizing tier applied by the operator
-                  (spec.profile, or small when unset).
+                  Profile is the sizing tier whose workloads the operator applied for the
+                  current generation (spec.profile, or small when unset). It is set once the
+                  sized workloads are applied, not when every readiness gate passes.
                 enum:
                 - small
                 - medium

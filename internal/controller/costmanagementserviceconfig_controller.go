@@ -269,6 +269,18 @@ func (r *CostManagementServiceConfigReconciler) phases(ctx context.Context, cfg 
 	}
 }
 
+// markProfileApplied records the tier whose sized workloads were applied for
+// the current generation (design §3.4, D20). It is called once the last phase
+// that unconditionally applies sized Deployments has run (reconcileEdge, right
+// after the Envoy Deployment is applied), so earlier failures and readiness
+// gates (migration, core/worker readiness) leave the previous value untouched.
+// It deliberately does not wait on Envoy/Route readiness or on UI-specific
+// gates (OAuth client Secret, UI Route admission): the UI is user-gated
+// optional configuration and UIReady=False is a normal lab state.
+func (r *CostManagementServiceConfigReconciler) markProfileApplied(cfg *costv1alpha1.CostManagementServiceConfig) {
+	cfg.Status.Profile = resources.EffectiveProfile(cfg)
+}
+
 // reconcile drives the ordered, staged rollout:
 //  0. Workload images (spec.*.image required; no operator catalog default)
 //  1. Discovery (cluster domain, StorageClass, S3)
@@ -322,8 +334,6 @@ func (r *CostManagementServiceConfigReconciler) reconcile(ctx context.Context, c
 	r.setCondition(cfg, costv1alpha1.ConditionProgressing, metav1.ConditionFalse, "ReconcileComplete", "")
 	r.setCondition(cfg, costv1alpha1.ConditionDegraded, metav1.ConditionFalse, "ReconcileComplete", "")
 	cfg.Status.Phase = costv1alpha1.PhaseReady
-	// Only a fully successful pass reports the tier as applied (design §3.4).
-	cfg.Status.Profile = resources.EffectiveProfile(cfg)
 	r.emitPhaseChanged(cfg, priorPhase, costv1alpha1.PhaseReady)
 	// Periodic drift correction: re-apply all desired state every 5 minutes so
 	// manual edits to managed resources are reverted without waiting for an event.
@@ -891,6 +901,9 @@ func (r *CostManagementServiceConfigReconciler) reconcileEdge(ctx context.Contex
 			return Result{}, fmt.Errorf("edge %s: %w", obj.GetName(), err)
 		}
 	}
+
+	// Envoy is the last sized Deployment applied unconditionally (D20).
+	r.markProfileApplied(cfg)
 
 	route := resources.GatewayAPIRoute(cfg)
 	if route != nil {

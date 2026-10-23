@@ -125,7 +125,8 @@ and the operator resolves the effective values in the workload builders at rende
    example `replicas`) override individually, while an explicit `resources`
    block replaces the profile's resources block whole (no per-key merge).
 3. If `spec.profile` is unset, `small` applies (COST-7599 baseline).
-4. The effective profile is reported in `status.profile`.
+4. The tier whose sized workloads were applied is reported in `status.profile`
+   (set once they are applied, not when every readiness gate passes).
 
 The perf harness (`scripts/lib/perf-testing.sh`) now patches `spec.profile`
 rather than using `oc scale`. Envoy's HTTP connection manager matches the chart

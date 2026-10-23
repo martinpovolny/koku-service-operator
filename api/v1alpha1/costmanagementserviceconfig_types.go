@@ -775,8 +775,9 @@ type CostManagementServiceConfigStatus struct {
 	// ObservedGeneration is the metadata.generation last reconciled.
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 
-	// Profile is the effective sizing tier applied by the operator
-	// (spec.profile, or small when unset).
+	// Profile is the sizing tier whose workloads the operator applied for the
+	// current generation (spec.profile, or small when unset). It is set once the
+	// sized workloads are applied, not when every readiness gate passes.
 	// +optional
 	Profile Profile `json:"profile,omitempty"`
 }
