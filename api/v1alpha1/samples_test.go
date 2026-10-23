@@ -3,6 +3,7 @@ package v1alpha1
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -352,5 +353,45 @@ func TestSampleCRs_ProfileDrivesReplicas(t *testing.T) {
 				t.Errorf("replica pins defeat spec.profile: %v", pins)
 			}
 		})
+	}
+}
+
+// The hand-maintained CSV initialization-resource annotation is what OLM
+// offers as the default CR in the console; it must stay equal to the default
+// sample (profile-driven, no replica pins).
+func TestCSVInitializationResourceMatchesDefaultSample(t *testing.T) {
+	t.Parallel()
+	csvData, err := os.ReadFile(filepath.Join("..", "..", "config", "manifests", "bases", "koku-service-operator.clusterserviceversion.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var csv struct {
+		Metadata struct {
+			Annotations map[string]string `json:"annotations"`
+		} `json:"metadata"`
+	}
+	if err := yaml.Unmarshal(csvData, &csv); err != nil {
+		t.Fatal(err)
+	}
+	raw, ok := csv.Metadata.Annotations["operatorframework.io/initialization-resource"]
+	if !ok {
+		t.Fatal("CSV base lacks operatorframework.io/initialization-resource")
+	}
+	var got, want map[string]any
+	if err := yaml.Unmarshal([]byte(raw), &got); err != nil {
+		t.Fatalf("parse annotation: %v", err)
+	}
+	sample, err := os.ReadFile(samplePath(sampleDefault))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := yaml.Unmarshal(sample, &want); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("initialization-resource differs from default sample\n got: %v\nwant: %v", got, want)
+	}
+	if pins := findReplicaPins(got, ""); len(pins) != 0 {
+		t.Errorf("annotation pins replicas: %v", pins)
 	}
 }
