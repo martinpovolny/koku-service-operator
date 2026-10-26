@@ -117,11 +117,11 @@ when the OAuth client Secret exists; the UI Deployment is never
 readiness-gated.
 
 **Impact:** A stuck Ingress/Envoy/UI Deployment leaves `Progressing=True`
-and requeues every 30s indefinitely. `Available` may stay `True`
-`KokuAvailable` (Ingress/Envoy wait after core has already promoted it)
-or keep a stale core wait reason if a later change stops promoting
-`Available`. Operators never get `Degraded=True` `DeploymentNotReady`
-for those components.
+and requeues every 30s indefinitely. On first install `Available` stays
+`False` `WaitingForComponents` (core no longer promotes it — COST-8103);
+on a drift pass after `Ready` it stays `True` `AllComponentsReady`
+because these waits do not touch `Available`. Operators never get
+`Degraded=True` `DeploymentNotReady` for those components.
 
 **Suggested fix:** Route Ingress (and optionally Envoy/UI) through
 `notReadyWait` with dedicated wait reasons, same as ROS API. Add tests

@@ -88,8 +88,11 @@ PostgreSQL and Valkey** in `cost-onprem` (lab/CI — not production BYOI).
 
 **Day-one success (enough for most pytest):**
 
-- `SchemaUpToDate=True`, `Available=True` (`KokuAvailable`)
+- `SchemaUpToDate=True`, `CoreServicesReady=True` (`CoreServicesAvailable`)
 - Core Deployments healthy
+
+`Available=True` (`AllComponentsReady`) and `Phase=Ready` are set only when
+the whole pipeline succeeds, which requires Keycloak and the UI OAuth Secret.
 
 **Expected to stay False without extra UI work:**
 
@@ -378,7 +381,8 @@ Example good end state:
 
 ```text
 SchemaUpToDate=True (MigrationComplete)
-Available=True (KokuAvailable)
+CoreServicesReady=True (CoreServicesAvailable)
+Available=False (WaitingForComponents)
 GatewayReady=True (GatewayReady)
 IngressReady=True (IngressReady)
 StorageReady=True (StorageReady)

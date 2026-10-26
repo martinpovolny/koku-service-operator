@@ -56,7 +56,8 @@ const (
 	reasonWaitingForKruize       = "WaitingForKruize"
 	reasonWaitingForROSAPI       = "WaitingForROSAPI"
 	reasonWaitingForROSProcessor = "WaitingForROSProcessor"
-	reasonKokuAvailable          = "KokuAvailable"
+	reasonCoreServicesAvailable  = "CoreServicesAvailable"
+	reasonWaitingForComponents   = "WaitingForComponents"
 	reasonDeploymentNotReady     = "DeploymentNotReady"
 	reasonDeploymentReady        = "DeploymentReady"
 	reasonReconcileError         = "ReconcileError"
@@ -69,6 +70,8 @@ const (
 	msgWaitingForKruize          = "waiting for Kruize"
 	msgWaitingForROSAPI          = "waiting for ROS API"
 	msgWaitingForROSProcessor    = "waiting for ROS Processor"
+	msgCoreServicesAvailable     = "core services are ready"
+	msgWaitingForComponents      = "core services ready; waiting for workers and edge"
 )
 
 type CostManagementServiceConfigReconciler struct {
@@ -186,14 +189,16 @@ func (r *CostManagementServiceConfigReconciler) Reconcile(ctx context.Context, r
 	return result, reconcileErr
 }
 
-// markPaused sets Paused/Progressing conditions and emits a Paused event.
+// markPaused sets Paused/Progressing conditions. The Paused event is emitted
+// only on the transition into Paused, not on every paused reconcile.
 func (r *CostManagementServiceConfigReconciler) markPaused(cfg *costv1alpha1.CostManagementServiceConfig) {
+	wasPaused := apimeta.IsStatusConditionTrue(cfg.Status.Conditions, costv1alpha1.ConditionPaused)
 	r.setCondition(cfg, costv1alpha1.ConditionPaused, metav1.ConditionTrue,
 		"AnnotationSet", fmt.Sprintf("reconciliation paused (%s=%s)", pauseAnnotation, annotationTrue))
 	r.setCondition(cfg, costv1alpha1.ConditionProgressing, metav1.ConditionFalse,
 		"Paused", "reconciliation paused via annotation")
 	cfg.Status.ObservedGeneration = cfg.Generation
-	if r.Recorder != nil {
+	if r.Recorder != nil && !wasPaused {
 		r.Recorder.Event(cfg, corev1.EventTypeNormal, "Paused",
 			"Reconciliation paused; remove the pause annotation to resume")
 	}
@@ -763,6 +768,7 @@ func (r *CostManagementServiceConfigReconciler) reconcileCoreServices(ctx contex
 	}
 	if !rbacReady {
 		r.setCondition(cfg, costv1alpha1.ConditionRBACReady, metav1.ConditionFalse, reasonWaitingForRBAC, msgWaitingForRBACAPI)
+		r.setCondition(cfg, costv1alpha1.ConditionCoreServicesReady, metav1.ConditionFalse, reasonWaitingForRBAC, msgWaitingForRBACAPI)
 		r.setCondition(cfg, costv1alpha1.ConditionAvailable, metav1.ConditionFalse, reasonWaitingForRBAC, msgWaitingForRBACAPI)
 		return Result{RequeueAfter: requeueSlow}, nil
 	}
@@ -780,23 +786,30 @@ func (r *CostManagementServiceConfigReconciler) waitForCoreServiceReadiness(ctx 
 	if costv1alpha1.ROSEnabled(cfg) {
 		waits = append(waits, deploymentWait{resources.NameKruize(cfg), reasonWaitingForKruize, msgWaitingForKruize, "Kruize"})
 	}
-	if result, err := r.waitForDeployments(ctx, cfg, waits); err != nil || !result.IsZero() {
+	result, err := r.waitForDeployments(ctx, cfg, waits)
+	if err != nil {
 		return result, err
 	}
+	if !result.IsZero() {
+		// notReadyWait recorded the blocking Deployment on Available; mirror it.
+		if avail := apimeta.FindStatusCondition(cfg.Status.Conditions, costv1alpha1.ConditionAvailable); avail != nil {
+			r.setCondition(cfg, costv1alpha1.ConditionCoreServicesReady, metav1.ConditionFalse, avail.Reason, avail.Message)
+		}
+		return result, nil
+	}
+	r.setCondition(cfg, costv1alpha1.ConditionCoreServicesReady, metav1.ConditionTrue, reasonCoreServicesAvailable, msgCoreServicesAvailable)
 
-	// A later phase (ROS API/Processor) may already own Available=False.
-	// Promoting to KokuAvailable here would stamp a new LastTransitionTime
-	// and reset the 5-minute DeploymentNotReady clock on every pass.
-	// CoreServicesAvailable is skipped on this path; reconcile() emits
-	// AllComponentsReady when the wait clears.
-	if holdingWorkerReadinessWait(cfg) {
+	// Workers and Edge have not run yet in this pass. Only reconcile() publishes
+	// Available=True (with the Ready event) once the whole pipeline succeeds.
+	// Leave Available alone when a later phase (ROS API/Processor) owns the
+	// readiness-wait clock, or on a drift pass where it is already True.
+	if holdingWorkerReadinessWait(cfg) ||
+		apimeta.IsStatusConditionTrue(cfg.Status.Conditions, costv1alpha1.ConditionAvailable) {
 		return Result{}, nil
 	}
-
-	if !apimeta.IsStatusConditionTrue(cfg.Status.Conditions, costv1alpha1.ConditionAvailable) {
-		r.Recorder.Event(cfg, corev1.EventTypeNormal, "CoreServicesAvailable", "Koku API is ready")
-	}
-	r.setCondition(cfg, costv1alpha1.ConditionAvailable, metav1.ConditionTrue, reasonKokuAvailable, "")
+	// Status stays False, so a stale core wait reason is replaced without
+	// resetting LastTransitionTime.
+	r.setCondition(cfg, costv1alpha1.ConditionAvailable, metav1.ConditionFalse, reasonWaitingForComponents, msgWaitingForComponents)
 	return Result{}, nil
 }
 

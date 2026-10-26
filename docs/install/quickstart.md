@@ -157,7 +157,8 @@ oc -n "$NAMESPACE" describe cmsc cost-management-minimal
 | `StorageReady`, `KafkaReady` | True for a working upload path |
 | `SchemaUpToDate` | True (migrations finished) |
 | `RBACReady`, `IngressReady`, `GatewayReady` | True |
-| `Available` | True (`KokuAvailable`) — **success for this quickstart** |
+| `CoreServicesReady` | True (`CoreServicesAvailable`) — core Deployments up; checkpoint only |
+| `Available` | True (`AllComponentsReady`) — **success for this quickstart**; set only after workers, gateway and UI are ready |
 | `ROSEnabled` | False |
 | `AuthenticationReady` | True once JWKS is reachable at `spec.auth.keycloak.url` |
 | `UIReady` | True after the UI OAuth Secret exists — **not** proof UI pods are healthy (see [keycloak.md](keycloak.md#ui-login-troubleshooting)) |
