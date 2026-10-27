@@ -609,7 +609,12 @@ func (r *CostManagementServiceConfigReconciler) reconcileMigration(ctx context.C
 	schemaWasReady := apimeta.IsStatusConditionTrue(cfg.Status.Conditions, costv1alpha1.ConditionSchemaUpToDate)
 	r.setCondition(cfg, costv1alpha1.ConditionSchemaUpToDate, metav1.ConditionTrue, "MigrationComplete", "all schema migrations succeeded")
 	r.setCondition(cfg, costv1alpha1.ConditionUpgradeFailed, metav1.ConditionFalse, "MigrationComplete", "all schema migrations succeeded")
-	r.setCondition(cfg, costv1alpha1.ConditionDegraded, metav1.ConditionFalse, "MigrationSucceeded", "")
+	// DeploymentNotReady belongs to a later readiness wait, which clears it
+	// when its Deployment recovers. Clearing it here would have that wait set
+	// it again in the same pass and reset Degraded's LastTransitionTime.
+	if deg := apimeta.FindStatusCondition(cfg.Status.Conditions, costv1alpha1.ConditionDegraded); deg == nil || deg.Reason != reasonDeploymentNotReady {
+		r.setCondition(cfg, costv1alpha1.ConditionDegraded, metav1.ConditionFalse, "MigrationSucceeded", "")
+	}
 	if !schemaWasReady && r.Recorder != nil {
 		r.Recorder.Event(cfg, corev1.EventTypeNormal, "MigrationsComplete",
 			"All schema migrations succeeded (Koku → ROS → RBAC)")
@@ -1606,8 +1611,29 @@ func (r *CostManagementServiceConfigReconciler) waitForDeployments(
 			return r.notReadyWait(cfg, w.reason, w.message, w.component), nil
 		}
 	}
-	r.clearDeploymentNotReady(cfg)
+	// A later phase's wait (ROS workers, UI) owns Available and the
+	// DeploymentNotReady it raised. Clearing it here would only have that
+	// phase set it again in the same pass, resetting Degraded's
+	// LastTransitionTime (and patching status) on every reconcile.
+	if !heldByOtherWait(cfg, waits) {
+		r.clearDeploymentNotReady(cfg)
+	}
 	return Result{}, nil
+}
+
+// heldByOtherWait reports whether Available is held by a later-phase wait
+// that is not one of waits.
+func heldByOtherWait(cfg *costv1alpha1.CostManagementServiceConfig, waits []deploymentWait) bool {
+	if !holdingWorkerReadinessWait(cfg) {
+		return false
+	}
+	reason := apimeta.FindStatusCondition(cfg.Status.Conditions, costv1alpha1.ConditionAvailable).Reason
+	for _, w := range waits {
+		if w.reason == reason {
+			return false
+		}
+	}
+	return true
 }
 
 // notReadyWait records Available=False for a named Deployment. After

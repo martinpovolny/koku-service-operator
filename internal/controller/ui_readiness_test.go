@@ -168,3 +168,107 @@ func TestReconcileUI_Timeout_DegradesAcrossCorePass(t *testing.T) {
 		t.Fatalf("expected Degraded=True %s naming the UI, got %+v", reasonDeploymentNotReady, deg)
 	}
 }
+
+// Once the UI wait has degraded, a later core pass must not clear Degraded
+// only for the UI wait to set it again: Degraded's LastTransitionTime stays
+// stable across passes while the UI is still down.
+func TestReconcileUI_Degraded_StableAcrossCorePass(t *testing.T) {
+	r, cfg, c := uiReadyFixture(t)
+
+	if _, err := r.reconcileCoreServices(context.Background(), cfg); err != nil {
+		t.Fatalf("core first pass: %v", err)
+	}
+	for _, name := range []string{
+		resources.NameRBACAPI(cfg), resources.NameRBACWorker(cfg), resources.NameKokuAPI(cfg),
+		resources.NameMasu(cfg), resources.NameListener(cfg),
+	} {
+		markDeploymentReady(t, c, testNamespace, name)
+	}
+	if _, err := r.reconcileUI(context.Background(), cfg); err != nil {
+		t.Fatalf("ui first pass: %v", err)
+	}
+	apimeta.RemoveStatusCondition(&cfg.Status.Conditions, costv1alpha1.ConditionAvailable)
+	apimeta.SetStatusCondition(&cfg.Status.Conditions, metav1.Condition{
+		Type: costv1alpha1.ConditionAvailable, Status: metav1.ConditionFalse,
+		Reason: reasonWaitingForUI, Message: msgWaitingForUI,
+		LastTransitionTime: metav1.NewTime(time.Now().Add(-6 * time.Minute)),
+	})
+	degradedSince := metav1.NewTime(time.Now().Add(-time.Minute).Truncate(time.Second))
+	apimeta.SetStatusCondition(&cfg.Status.Conditions, metav1.Condition{
+		Type: costv1alpha1.ConditionDegraded, Status: metav1.ConditionTrue,
+		Reason: reasonDeploymentNotReady, Message: "UI is not ready", LastTransitionTime: degradedSince,
+	})
+
+	if _, err := r.reconcileCoreServices(context.Background(), cfg); err != nil {
+		t.Fatalf("core pass: %v", err)
+	}
+	if _, err := r.reconcileUI(context.Background(), cfg); err != nil {
+		t.Fatalf("ui pass: %v", err)
+	}
+
+	deg := findCondition(cfg.Status.Conditions, costv1alpha1.ConditionDegraded)
+	if deg == nil || deg.Status != metav1.ConditionTrue || !deg.LastTransitionTime.Equal(&degradedSince) {
+		t.Fatalf("expected Degraded=True with stable LastTransitionTime %s, got %+v", degradedSince, deg)
+	}
+}
+
+// Same as above, but over the real phase order of a pass: the migration
+// stage (already complete) runs first and must not clear a later wait's
+// DeploymentNotReady either.
+func TestReconcileUI_Degraded_StableAcrossMigrationPass(t *testing.T) {
+	r, cfg, c := uiReadyFixture(t)
+	// Same spec as newMigrationTestReconciler so the migration stage runs Jobs.
+	cfg.Spec.Database.Deploy = new(true)
+	cfg.Spec.Cache.Deploy = new(true)
+	cfg.Spec.CostManagement.API.Image = costv1alpha1.ImageSpec{Repository: "quay.io/test/koku", Tag: "v1"}
+	cfg.Spec.RBAC.Image = costv1alpha1.ImageSpec{Repository: "quay.io/test/rbac", Tag: "v1"}
+
+	for _, job := range []string{resources.NameKokuMigration(cfg), resources.NameRBACMigration(cfg)} {
+		if _, err := r.reconcileMigration(context.Background(), cfg); err != nil {
+			t.Fatalf("migration %s: %v", job, err)
+		}
+		markJobComplete(t, c, testNamespace, job)
+	}
+	if _, err := r.reconcileMigration(context.Background(), cfg); err != nil {
+		t.Fatalf("migration complete: %v", err)
+	}
+	if _, err := r.reconcileCoreServices(context.Background(), cfg); err != nil {
+		t.Fatalf("core first pass: %v", err)
+	}
+	for _, name := range []string{
+		resources.NameRBACAPI(cfg), resources.NameRBACWorker(cfg), resources.NameKokuAPI(cfg),
+		resources.NameMasu(cfg), resources.NameListener(cfg),
+	} {
+		markDeploymentReady(t, c, testNamespace, name)
+	}
+	if _, err := r.reconcileUI(context.Background(), cfg); err != nil {
+		t.Fatalf("ui first pass: %v", err)
+	}
+	apimeta.RemoveStatusCondition(&cfg.Status.Conditions, costv1alpha1.ConditionAvailable)
+	apimeta.SetStatusCondition(&cfg.Status.Conditions, metav1.Condition{
+		Type: costv1alpha1.ConditionAvailable, Status: metav1.ConditionFalse,
+		Reason: reasonWaitingForUI, Message: msgWaitingForUI,
+		LastTransitionTime: metav1.NewTime(time.Now().Add(-6 * time.Minute)),
+	})
+	degradedSince := metav1.NewTime(time.Now().Add(-time.Minute).Truncate(time.Second))
+	apimeta.SetStatusCondition(&cfg.Status.Conditions, metav1.Condition{
+		Type: costv1alpha1.ConditionDegraded, Status: metav1.ConditionTrue,
+		Reason: reasonDeploymentNotReady, Message: "UI is not ready", LastTransitionTime: degradedSince,
+	})
+
+	// One full pass in pipeline order: migration → core → Edge/UI.
+	if _, err := r.reconcileMigration(context.Background(), cfg); err != nil {
+		t.Fatalf("migration pass: %v", err)
+	}
+	if _, err := r.reconcileCoreServices(context.Background(), cfg); err != nil {
+		t.Fatalf("core pass: %v", err)
+	}
+	if _, err := r.reconcileUI(context.Background(), cfg); err != nil {
+		t.Fatalf("ui pass: %v", err)
+	}
+
+	deg := findCondition(cfg.Status.Conditions, costv1alpha1.ConditionDegraded)
+	if deg == nil || deg.Status != metav1.ConditionTrue || !deg.LastTransitionTime.Equal(&degradedSince) {
+		t.Fatalf("expected Degraded=True with stable LastTransitionTime %s, got %+v", degradedSince, deg)
+	}
+}
