@@ -23,6 +23,12 @@ addressed. Finding statuses are intentionally fixed at the time of discovery
 **Related Jira**: [COST-8154](https://redhat.atlassian.net/browse/COST-8154) (Translate chart sizing guide to operator CMSC configuration)
 **Test run**: `main-small-api+rbac+ingestion-1789657257`
 
+> **Historical (pre-COST-8095).** Problem, Evidence and Fix below describe the
+> operator and harness *before* COST-8095 (Phase 1 stub, `oc scale`, empty
+> `resources: {}` defaults). They are kept as the evidence record; for current
+> behaviour see [profile-sizing-maps.md](../design/profile-sizing-maps.md) and
+> the pre-test setup at the end of this finding.
+
 **Problem**:
 `apply_perf_profile_config()` in `scripts/lib/perf-testing.sh` has two
 phases:
@@ -80,7 +86,7 @@ ocp_worker_mem_req="512Mi" ocp_worker_mem_lim="1Gi"
 - Memory: namespace LimitRange default (`512Mi` limit — no headroom buffer)
 - No explicit requests set → over-commit allowed → pods scheduled tightly
 
-**Fix required**:
+**Fix required** (at the time — implemented by COST-8095 via `spec.profile`):
 1. The CMSC sample and/or the deploy script must apply explicit resource
    values matching the chart small-profile baseline before running perf
    tests.
@@ -122,6 +128,11 @@ oc patch cmsc cost-onprem -n cost-onprem --type=merge -p '{"spec":{
 **Severity**: High
 **Related Jira**: [COST-8154](https://redhat.atlassian.net/browse/COST-8154)
 
+> **Historical (pre-COST-8095).** Problem, Evidence and the fix proposal below
+> describe the operator before COST-8095, when builders passed `resources: {}`
+> through. Today every Celery worker gets profile resources
+> ([design §5](../design/profile-sizing-maps.md)).
+
 **Problem**:
 The operator's `CeleryWorkerDeployment()` builder passes `spec.Resources`
 directly to the pod template with no default injection. A default community
@@ -147,7 +158,7 @@ request → effective limit is 512Mi with no headroom buffer over the request.
 **Mitigation applied**: Manual `oc patch` raised `limits.memory` to `1Gi`
 on the live deployment. The operator will revert this on next reconcile.
 
-**Permanent fix**: The operator must inject sensible default resources for
+**Permanent fix** (at the time — implemented by COST-8095; `small` ocp worker is 250m/500m CPU, 512Mi/1Gi memory): The operator must inject sensible default resources for
 `celery-worker-ocp` when `spec.costManagement.celery.workers.ocp.resources`
 is not set. Minimum recommended defaults:
 ```
