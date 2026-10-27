@@ -9,6 +9,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -224,4 +225,54 @@ func assertNoEvent(t *testing.T, rec *record.FakeRecorder, reason string) {
 			return
 		}
 	}
+}
+
+// staleCMSCClient simulates informer-cache lag: Get on the CMSC returns a
+// snapshot taken before the previous reconcile patched status.
+type staleCMSCClient struct {
+	client.Client
+	stale *costv1alpha1.CostManagementServiceConfig
+}
+
+func (s *staleCMSCClient) Get(ctx context.Context, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+	if cfg, ok := obj.(*costv1alpha1.CostManagementServiceConfig); ok && key.Name == s.stale.Name && key.Namespace == s.stale.Namespace {
+		s.stale.DeepCopyInto(cfg)
+		return nil
+	}
+	return s.Client.Get(ctx, key, obj, opts...)
+}
+
+// A reconcile that reads a stale cached CR must not re-emit a transition
+// Event the previous pass already emitted: Reconcile reads the CR via the
+// uncached APIReader so transition guards see the latest status.
+func TestTransitionEvent_NotReemittedOnStaleCache(t *testing.T) {
+	cr := minimalCR(testCRName, testNamespace)
+	controllerutil.AddFinalizer(cr, finalizerName)
+	cr.Annotations = map[string]string{pauseAnnotation: annotationTrue}
+
+	c := fake.NewClientBuilder().
+		WithScheme(ownershipScheme(t)).
+		WithObjects(cr).
+		WithStatusSubresource(cr).
+		Build()
+	req := reconcile.Request{NamespacedName: types.NamespacedName{Name: testCRName, Namespace: testNamespace}}
+
+	stale := &costv1alpha1.CostManagementServiceConfig{}
+	if err := c.Get(context.Background(), req.NamespacedName, stale); err != nil {
+		t.Fatalf("snapshot: %v", err)
+	}
+
+	rec := record.NewFakeRecorder(10)
+	r := &CostManagementServiceConfigReconciler{Client: c, APIReader: c, Scheme: ownershipScheme(t), Recorder: rec}
+	if _, err := r.Reconcile(context.Background(), req); err != nil {
+		t.Fatalf("pass 1: %v", err)
+	}
+	assertEvent(t, rec, "Paused")
+
+	// Cache still holds the pre-pause status; the API server has Paused=True.
+	r.Client = &staleCMSCClient{Client: c, stale: stale}
+	if _, err := r.Reconcile(context.Background(), req); err != nil {
+		t.Fatalf("pass 2: %v", err)
+	}
+	assertNoEvent(t, rec, "Paused")
 }

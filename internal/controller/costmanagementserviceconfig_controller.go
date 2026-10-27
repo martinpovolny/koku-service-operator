@@ -131,8 +131,16 @@ type CostManagementServiceConfigReconciler struct {
 func (r *CostManagementServiceConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 
+	// Read the CR uncached. Transition Events (Ready, MigrationsComplete,
+	// Paused, ...) are guarded on the previous status, and the informer cache
+	// can lag the status patch of the pass that just finished. A stale read
+	// passes the guard again and emits a duplicate Event.
+	reader := client.Reader(r.Client)
+	if r.APIReader != nil {
+		reader = r.APIReader
+	}
 	cfg := &costv1alpha1.CostManagementServiceConfig{}
-	if err := r.Get(ctx, req.NamespacedName, cfg); err != nil {
+	if err := reader.Get(ctx, req.NamespacedName, cfg); err != nil {
 		if errors.IsNotFound(err) {
 			return ctrl.Result{}, nil
 		}
