@@ -363,14 +363,24 @@ func (r *CostManagementServiceConfigReconciler) reconcileStack(ctx context.Conte
 		return ctrl.Result{RequeueAfter: result.RequeueAfter}, nil
 	}
 
-	// Emit Ready event only on the first transition to Ready.
-	// Use priorPhase (captured before this pass reset it to Progressing)
-	// to detect a genuine non-Ready → Ready transition.
+	r.markReady(cfg, priorPhase, rollbackHold)
+	r.completeProgressing(cfg, priorProgressing)
+	// Periodic drift correction: re-apply all desired state every 5 minutes so
+	// manual edits to managed resources are reverted without waiting for an event.
+	return ctrl.Result{RequeueAfter: requeueDrift}, nil
+}
+
+// markReady publishes the success state at the end of a full pipeline pass.
+// priorPhase is the phase read at the start of the pass (before reconcileStack
+// reset it to Progressing); the Ready event fires only on a genuine
+// non-Ready → Ready transition. During a rollback hold rollbackUpgrade owns
+// Degraded and the phase-change announcement, so neither Ready nor
+// PhaseChanged is emitted and Degraded is left as is.
+func (r *CostManagementServiceConfigReconciler) markReady(cfg *costv1alpha1.CostManagementServiceConfig, priorPhase costv1alpha1.Phase, rollbackHold bool) {
 	if priorPhase != costv1alpha1.PhaseReady && !rollbackHold {
 		r.Recorder.Event(cfg, corev1.EventTypeNormal, "Ready", "All components are running")
 	}
 	r.setCondition(cfg, costv1alpha1.ConditionAvailable, metav1.ConditionTrue, "AllComponentsReady", "All components are running")
-	r.completeProgressing(cfg, priorProgressing)
 	if !rollbackHold {
 		r.setCondition(cfg, costv1alpha1.ConditionDegraded, metav1.ConditionFalse, "ReconcileComplete", "")
 	}
@@ -378,9 +388,6 @@ func (r *CostManagementServiceConfigReconciler) reconcileStack(ctx context.Conte
 	if !rollbackHold {
 		r.emitPhaseChanged(cfg, priorPhase, costv1alpha1.PhaseReady)
 	}
-	// Periodic drift correction: re-apply all desired state every 5 minutes so
-	// manual edits to managed resources are reverted without waiting for an event.
-	return ctrl.Result{RequeueAfter: requeueDrift}, nil
 }
 
 // -----------------------------------------------------------------------------
