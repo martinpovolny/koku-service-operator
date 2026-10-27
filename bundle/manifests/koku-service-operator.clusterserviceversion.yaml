@@ -110,8 +110,7 @@ metadata:
                   "repository": "registry.redhat.io/rhceph/oauth2-proxy-rhel9",
                   "tag": "v7.6.0"
                 }
-              },
-              "replicaCount": 1
+              }
             }
           }
         },
@@ -226,14 +225,13 @@ metadata:
                   "repository": "quay.io/oauth2-proxy/oauth2-proxy",
                   "tag": "v7.6.0"
                 }
-              },
-              "replicaCount": 1
+              }
             }
           }
         }
       ]
     capabilities: Basic Install
-    createdAt: "2026-10-23T07:57:44Z"
+    createdAt: "2026-10-27T14:45:32Z"
     description: |
       Kubernetes operator for self-managed (on-premise) Cost Management on OpenShift
       that deploys and manages the Cost Management stack against external infrastructure
@@ -345,8 +343,7 @@ metadata:
                 "repository": "registry.redhat.io/rhceph/oauth2-proxy-rhel9",
                 "tag": "v7.6.0"
               }
-            },
-            "replicaCount": 1
+            }
           }
         }
       }

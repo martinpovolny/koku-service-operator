@@ -305,15 +305,15 @@ func TestProductionSampleUsesLargeProfile(t *testing.T) {
 	}
 }
 
-// findReplicaPins returns the dotted paths of every "replicas" key in a decoded
-// YAML tree.
+// findReplicaPins returns the dotted paths of every replica-count key
+// ("replicas", or spec.ui's "replicaCount") in a decoded YAML tree.
 func findReplicaPins(node any, path string) []string {
 	var out []string
 	switch v := node.(type) {
 	case map[string]any:
 		for k, child := range v {
 			p := path + "." + k
-			if k == "replicas" {
+			if k == "replicas" || k == "replicaCount" {
 				out = append(out, p)
 			}
 			out = append(out, findReplicaPins(child, p)...)

@@ -119,7 +119,6 @@ spec:
       #   caCertSecretName: "keycloak-ca"
 
   ui:
-    replicaCount: 1
     # User-provided OAuth client Secret (keys: client-id, client-secret).
     # Default name: {metadata.name}-ui-oauth-client. Mirror from Keycloak with:
     #   ./config/samples/byoi/mirror-ui-oauth-secret.sh

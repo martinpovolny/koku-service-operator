@@ -127,7 +127,6 @@ spec:
       tag: "34e25ed"
 
   ui:
-    replicaCount: 1
     # User-provided OAuth client Secret (keys: client-id, client-secret).
     # Default: {metadata.name}-ui-oauth-client — see byoi/mirror-ui-oauth-secret.sh
     # oauthClientSecretRef:
