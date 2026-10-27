@@ -57,20 +57,51 @@ database backup policy.
 
 ## TLS
 
-Prefer CA Secrets over `insecureSkipVerify` / `sslMode: disable`.
+Minimum crypto controls for production BYOI. The
+[production sample](../../config/samples/service.costmanagement_v1alpha1_costmanagementserviceconfig_production.yaml)
+already enables TLS on database, cache, Kafka, and S3 — copy those fields
+rather than inventing a weaker config.
 
-| Path | Spec | Secret key |
-|------|------|------------|
-| PostgreSQL | `database.sslMode: require` (or `verify-ca` / `verify-full`) | — |
-| Cache | `cache.tls.enabled` + `caCertSecretName` | `ca.crt` |
-| Kafka | `securityProtocol: SASL_SSL` (or `SSL`) + `kafka.tls.caCertSecret` | `ca.crt` |
-| S3 | `objectStorage.useSSL: true` + `caCertSecretName` | `ca.crt` |
-| Keycloak / issuer Route | `auth.keycloak.tls.caCertSecretName` | `ca.crt` |
-| API Route | Edge termination, insecure policy `Redirect` (CRD only allows `edge`) | OpenShift router |
-| UI Route | Passthrough (oauth2-proxy terminates TLS) | Service CA on the UI Service |
+Prefer CA Secrets over `insecureSkipVerify` / `sslMode: disable`.
+`insecureSkipVerify: true` and `sslMode: disable` are **never** acceptable in
+production.
+
+| Path | Required | Recommended | Secret key |
+|------|----------|-------------|------------|
+| PostgreSQL | `database.sslMode: require` | `verify-ca` or `verify-full` with a server CA | — |
+| Cache | `cache.tls.enabled: true` | `caCertSecretName` so the client verifies the cache cert | `ca.crt` |
+| Kafka | `securityProtocol: SASL_SSL` (or `SSL`) | `kafka.tls.caCertSecret` for broker CA verification | `ca.crt` |
+| S3 | `objectStorage.useSSL: true` | `caCertSecretName` when the endpoint uses a custom CA | `ca.crt` |
+| Keycloak / issuer | `auth.keycloak.url` must use HTTPS; `issuerURL` must use HTTPS when set | `auth.keycloak.tls.caCertSecretName` (skip CA only in lab) | `ca.crt` |
+| API Route | Edge TLS + `insecureEdgeTerminationPolicy: Redirect` (CRD allows `edge` only) | Custom router cert via OpenShift Route / ingress controller | OpenShift router |
+| UI Route | Passthrough so oauth2-proxy terminates TLS | Leave as-is; Service CA on the UI Service | Service CA |
+
+CMMO uploads to this instance must use an HTTPS `api_url` against the gateway
+Route. See [cmmo.md](cmmo.md).
 
 Gateway Route host defaults to `{name}-gateway-{namespace}.{clusterDomain}`
 with path `/api` and a 180s router timeout.
+
+## Encryption at rest
+
+At-rest encryption is **customer-owned (BYOI)**. This operator does not
+provision encrypted volumes, buckets, or etcd. It connects to infrastructure
+you already hardened. Enable encryption on each store **before** you apply the
+CR; the TLS settings above only protect data in transit.
+
+| Store | Recommendation | Who owns it |
+|-------|----------------|-------------|
+| PostgreSQL volumes | OpenShift ODF encrypted StorageClass, or LUKS-backed block storage under the database | Your DBA / storage operator |
+| Object storage buckets | Provider bucket encryption (for example AWS SSE-S3/KMS, NooBaa, Ceph RGW) | Your S3 / ODF admin — this operator does not create buckets |
+| Kafka topics | Broker / disk encryption via AMQ Streams (or equivalent) | Your Kafka operator |
+| Kubernetes Secrets | [OpenShift etcd encryption](https://docs.openshift.com/container-platform/latest/security/encrypting-etcd.html) so credential Secrets are not plaintext in etcd | Cluster admin |
+| Operator-generated Secrets | Same etcd encryption; also export `{cr}-django-secret` and `{cr}-ui-cookie-secret` outside the cluster (see [Backup and restore](#backup-and-restore)) | You |
+
+Do not put database, cache, Kafka, or S3 passwords in the CR spec. Use
+`database.secretName`, `cache.auth.secretName`, `kafka.sasl.existingSecret`,
+and `objectStorage.secretName` to reference Kubernetes Secrets. Bundled
+`database.deploy` / `cache.deploy` volumes are for lab and CI; they are not a
+production at-rest story.
 
 ## NetworkPolicies
 
