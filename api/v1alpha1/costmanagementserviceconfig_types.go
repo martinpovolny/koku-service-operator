@@ -786,11 +786,22 @@ type CostManagementServiceConfigStatus struct {
 // Root object
 // -----------------------------------------------------------------------------
 
+// Maximum CR name lengths. Generated resource names append suffixes to the CR
+// name; the tightest Kubernetes limit is a CronJob name (52 characters, Jobs
+// get a timestamp suffix): "-rbac-keycloak-sync" (19) leaves 33, and the
+// ROS-only "-kruize-delete-partitions" (25) leaves 27. Keep in sync with the
+// CEL rule on CostManagementServiceConfig and with TestMaxCRNameFits*.
+const (
+	MaxNameLength        = 33
+	MaxNameLengthWithROS = 27
+)
+
 // CostManagementServiceConfig is the schema for the on-premise Cost Management deployment.
 //
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Namespaced,shortName=cmsc
+// +kubebuilder:validation:XValidation:rule="size(self.metadata.name) <= ((has(self.spec) && has(self.spec.ros) && has(self.spec.ros.enabled) && self.spec.ros.enabled) ? 27 : 33)",message="metadata.name must be at most 33 characters (27 when spec.ros.enabled is true) so generated resource names stay within Kubernetes limits"
 // +kubebuilder:printcolumn:name="Phase",type=string,JSONPath=`.status.phase`
 // +kubebuilder:printcolumn:name="Profile",type=string,JSONPath=`.status.profile`
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`

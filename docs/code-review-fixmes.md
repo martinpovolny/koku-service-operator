@@ -105,9 +105,12 @@ ports and has no metrics endpoint, so it has nothing to scrape.
 PrometheusRules, or cluster-scoped resources. External deletion relies on the
 5-minute drift requeue. Needs discovery-gated dynamic watches.
 
-#### 12. Long CR names make generated resources invalid [D22]
+#### 12. Long CR names make generated resources invalid [D22] — **closed**
 
-No name truncation or label-value length validation. A CR name near 63 chars
-plus suffixes like `-celery-worker-{queue}` exceeds Kubernetes limits. The CR
-is admitted but all child creation fails.
+The CRD rejects `metadata.name` longer than 33 characters (27 with
+`spec.ros.enabled`) via a root CEL rule — the longest generated CronJob names
+(`-rbac-keycloak-sync`, ROS `-kruize-delete-partitions`) must fit 52
+characters (COST-8521). `TestMaxCRNameFitsGeneratedNames` proves the caps are
+tight. Route host DNS labels also depend on the namespace and are documented
+in [prerequisites](install/prerequisites.md#cr-name-length), not enforced.
 

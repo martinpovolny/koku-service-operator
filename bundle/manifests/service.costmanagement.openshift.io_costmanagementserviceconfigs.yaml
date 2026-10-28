@@ -2920,6 +2920,11 @@ spec:
                 type: string
             type: object
         type: object
+        x-kubernetes-validations:
+        - message: metadata.name must be at most 33 characters (27 when spec.ros.enabled
+            is true) so generated resource names stay within Kubernetes limits
+          rule: 'size(self.metadata.name) <= ((has(self.spec) && has(self.spec.ros)
+            && has(self.spec.ros.enabled) && self.spec.ros.enabled) ? 27 : 33)'
     served: true
     storage: true
     subresources:
