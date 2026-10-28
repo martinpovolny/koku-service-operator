@@ -57,6 +57,7 @@ func KeycloakSyncCronJob(cfg *costv1alpha1.CostManagementServiceConfig) *batchv1
 		EnvVal("KEYCLOAK_CLIENT_ID", spec.ClientID),
 		EnvFromSecret("KEYCLOAK_CLIENT_SECRET", spec.ClientSecretRef.Name, clientSecretKey(spec.ClientSecretRef.Key)),
 		EnvVal("KEYCLOAK_TLS_VERIFY", keycloakTLSVerifyStr(cfg)),
+		EnvVal("KEYCLOAK_CA_FILE", "/etc/keycloak-ca/ca.crt"),
 		EnvVal("SYNC_ORG_GROUP_PREFIX", orgGroupPrefix),
 		EnvVal("SYNC_ORG_ADMIN_SUBGROUP", orgAdminSubgroup),
 		EnvVal("SYNC_PRUNE_ORPHANS", boolEnvStr(costv1alpha1.BoolVal(spec.PruneOrphans, true))),
@@ -77,6 +78,10 @@ func KeycloakSyncCronJob(cfg *costv1alpha1.CostManagementServiceConfig) *batchv1
 		SubPath:   "sync_keycloak_principals.py",
 		ReadOnly:  true,
 	})
+	// Same CA oauth2-proxy trusts: auth.keycloak.tls.caCertSecretName, else the
+	// service CA. The script adds it to the default trust store.
+	vols = append(vols, keycloakCAVolume(cfg))
+	mounts = append(mounts, corev1.VolumeMount{Name: "keycloak-ca", MountPath: "/etc/keycloak-ca", ReadOnly: true})
 
 	return &batchv1.CronJob{
 		TypeMeta: metav1.TypeMeta{APIVersion: "batch/v1", Kind: "CronJob"},
