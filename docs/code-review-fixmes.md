@@ -32,11 +32,13 @@ steady-state status patch is empty.
 Edge writes `GatewayReady`. Validation keeps `AuthenticationReady` for the
 JWKS probe. See [COST-7688](gap_analysis/COST-7688.md).
 
-#### 4. Rollout readiness accepts stale replicas [D14]
+#### 4. Rollout readiness accepts stale replicas [D14] — **closed**
 
-`isDeploymentReady` only checks `AvailableReplicas >= spec.replicas`.
-No `ObservedGeneration`, `UpdatedReplicas`, or revision check. After an image
-change, old replicas satisfy the gate before any new pod exists.
+`isDeploymentReady` now requires `ObservedGeneration >= Generation`,
+`UpdatedReplicas >= spec.replicas` (#176) and no old pods left
+(`status.replicas <= updatedReplicas`, COST-8518) before
+`AvailableReplicas >= spec.replicas` counts. Previously a crash-looping new
+pod plus a serving old pod passed the gate.
 
 ### P1 — Resources
 
