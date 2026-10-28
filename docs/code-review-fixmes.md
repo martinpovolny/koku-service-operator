@@ -65,11 +65,12 @@ database.
 
 ### P2 — Validation / discovery
 
-#### 7. BYOI deployments require a default StorageClass [D21]
+#### 7. BYOI deployments require a default StorageClass [D21] — **closed**
 
-`resolveStorageClass` runs unconditionally. When both database and cache are
-external (no PVCs needed), a missing default StorageClass still blocks
-discovery with `DiscoveryComplete=False`.
+Discovery requires a StorageClass only when bundled PostgreSQL or Valkey
+create PVCs (`database.deploy` / `cache.deploy`). A fully external install
+records the default StorageClass when one exists and otherwise continues
+(COST-8521), as [prerequisites](install/prerequisites.md#openshift) states.
 
 ### P2 — API contract
 
