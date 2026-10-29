@@ -9,6 +9,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	costv1alpha1 "github.com/project-koku/koku-service-operator/api/v1alpha1"
+	"github.com/project-koku/koku-service-operator/internal/resources"
 )
 
 // D22: the CRD's CEL rule rejects CR names whose generated child resources
@@ -47,4 +48,21 @@ var _ = Describe("CMSC metadata.name length (CRD CEL)", func() {
 		Entry("ROS on, at cap", costv1alpha1.MaxNameLengthWithROS, true, true),
 		Entry("ROS on, cap+1", costv1alpha1.MaxNameLengthWithROS+1, true, false),
 	)
+
+	// Celery worker Deployments are always applied (also at 0 replicas); at the
+	// cap the longest is {cr}-celery-worker-subs-transmission (65 chars).
+	// Deployment names are DNS-1123 subdomains, so the apiserver admits them.
+	It("admits every Celery worker Deployment for a CR at MaxNameLength", func() {
+		cfg := minimalCR(strings.Repeat("c", costv1alpha1.MaxNameLength), "default")
+		for _, d := range resources.CeleryWorkerDeployments(cfg) {
+			for i := range d.Spec.Template.Spec.InitContainers {
+				d.Spec.Template.Spec.InitContainers[i].Image = "quay.io/test/img:1"
+			}
+			for i := range d.Spec.Template.Spec.Containers {
+				d.Spec.Template.Spec.Containers[i].Image = "quay.io/test/img:1"
+			}
+			Expect(k8sClient.Create(ctx, d)).To(Succeed(), "create %s (len %d)", d.Name, len(d.Name))
+			Expect(k8sClient.Delete(ctx, d)).To(Succeed())
+		}
+	})
 })

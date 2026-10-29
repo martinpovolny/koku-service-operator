@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/util/validation"
 
 	costv1alpha1 "github.com/project-koku/koku-service-operator/api/v1alpha1"
@@ -54,6 +55,32 @@ func nameViolations(cfg *costv1alpha1.CostManagementServiceConfig) []string {
 	for _, j := range []string{NameKokuMigration(cfg), NameRBACMigration(cfg)} {
 		check("Job", j, validation.IsValidLabelValue(j))
 	}
+	// Deployment names are DNS-1123 subdomains (≤253); their ReplicaSets
+	// (<name>-<hash>) are too, and generated Pod names are truncated by the
+	// apiserver. Container names and Pod labels are DNS-1123 labels (≤63).
+	deployments := append([]*appsv1.Deployment{
+		CacheDeployment(cfg), CeleryBeatDeployment(cfg), EnvoyDeployment(cfg),
+		IngressDeployment(cfg), KokuAPIDeployment(cfg), ListenerDeployment(cfg),
+		MasuDeployment(cfg), RBACAPIDeployment(cfg), RBACWorkerDeployment(cfg),
+		UIDeployment(cfg),
+	}, CeleryWorkerDeployments(cfg)...)
+	if costv1alpha1.ROSEnabled(cfg) {
+		deployments = append(deployments, KruizeDeployment(cfg), ROSAPIDeployment(cfg),
+			ROSHousekeeperDeployment(cfg), ROSPollerDeployment(cfg), ROSProcessorDeployment(cfg))
+	}
+	for _, d := range deployments {
+		if d == nil {
+			continue // not created for this config
+		}
+		check("Deployment", d.Name, validation.IsDNS1123Subdomain(d.Name))
+		pod := d.Spec.Template.Spec
+		for _, c := range append(pod.InitContainers, pod.Containers...) {
+			check("container in "+d.Name, c.Name, validation.IsDNS1123Label(c.Name))
+		}
+		for k, v := range d.Spec.Template.Labels {
+			check("pod label "+k+" in "+d.Name, v, validation.IsValidLabelValue(v))
+		}
+	}
 	for _, svc := range []string{
 		CacheService(cfg).Name, CeleryWorkersService(cfg).Name, DatabaseService(cfg).Name,
 		EnvoyService(cfg).Name, IngressService(cfg).Name, KokuAPIService(cfg).Name,
@@ -77,6 +104,13 @@ func TestMaxCRNameFitsGeneratedNames(t *testing.T) {
 		{name: "ROS enabled", ros: true, max: costv1alpha1.MaxNameLengthWithROS},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			// Celery workers are always built (also at 0 replicas); make sure
+			// the Deployment checks are not skipped as nil.
+			for _, d := range CeleryWorkerDeployments(longNameCfg(tc.max, tc.ros)) {
+				if d == nil {
+					t.Fatal("CeleryWorkerDeployments returned nil; Deployment names would go unchecked")
+				}
+			}
 			if v := nameViolations(longNameCfg(tc.max, tc.ros)); len(v) > 0 {
 				t.Fatalf("name length %d (the cap) produces invalid resources:\n%s", tc.max, strings.Join(v, "\n"))
 			}
