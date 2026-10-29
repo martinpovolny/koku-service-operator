@@ -294,6 +294,7 @@ func TestKeycloakSyncCronJobKeycloakCA(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			cfg := keycloakSyncCfg()
+			cfg.Spec.Auth.Keycloak.URL = "https://keycloak.keycloak.svc:8443"
 			cfg.Spec.Auth.Keycloak.TLS.CACertSecretName = tc.caSecret
 			pod := KeycloakSyncCronJob(cfg).Spec.JobTemplate.Spec.Template.Spec
 			c := pod.Containers[0]
@@ -343,5 +344,39 @@ func TestSyncScriptLoadsKeycloakCA(t *testing.T) {
 		if !strings.Contains(syncKeycloakScript, want) {
 			t.Errorf("sync script missing %q", want)
 		}
+	}
+}
+
+// The CA is only read for verified HTTPS. For an http:// URL or
+// insecureSkipVerify the CronJob must not depend on it: the service-CA
+// ConfigMap is created empty and filled by injection, and an unmounted key
+// would keep the Pod in ContainerCreating.
+func TestKeycloakSyncCronJobNoCAWhenUnused(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		url      string
+		insecure bool
+	}{
+		{name: "http URL", url: "http://keycloak.keycloak.svc:8080"},
+		{name: "https with insecureSkipVerify", url: "https://keycloak.keycloak.svc:8443", insecure: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := keycloakSyncCfg()
+			cfg.Spec.Auth.Keycloak.URL = tc.url
+			cfg.Spec.Auth.Keycloak.TLS.InsecureSkipVerify = tc.insecure
+			cfg.Spec.Auth.Keycloak.TLS.CACertSecretName = "keycloak-ingress-ca"
+			pod := KeycloakSyncCronJob(cfg).Spec.JobTemplate.Spec.Template.Spec
+
+			for _, v := range pod.Volumes {
+				if v.Name == "keycloak-ca" {
+					t.Fatalf("unexpected keycloak-ca volume: %+v", v.VolumeSource)
+				}
+			}
+			for _, e := range pod.Containers[0].Env {
+				if e.Name == "KEYCLOAK_CA_FILE" {
+					t.Fatalf("unexpected KEYCLOAK_CA_FILE=%q", e.Value)
+				}
+			}
+		})
 	}
 }

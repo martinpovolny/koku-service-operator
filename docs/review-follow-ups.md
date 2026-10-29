@@ -64,8 +64,9 @@ The sync CronJob verified Keycloak TLS with the system trust store only, so a
 private-CA Keycloak needed `insecureSkipVerify=true`. **COST-8521** mounts the
 same CA oauth2-proxy uses (`auth.keycloak.tls.caCertSecretName`, else the
 OpenShift service CA) at `/etc/keycloak-ca/ca.crt` and sets
-`KEYCLOAK_CA_FILE`; the sync script adds it to the default trust store
-(`load_verify_locations`) instead of replacing it. The Helm chart's CronJob
+`KEYCLOAK_CA_FILE` when the sync URL is `https://` with verification enabled;
+the sync script adds it to the default trust store (`load_verify_locations`)
+instead of replacing it. `http://` URLs and `insecureSkipVerify` mount no CA. The Helm chart's CronJob
 template still has the gap.
 
 ---

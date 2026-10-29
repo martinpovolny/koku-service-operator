@@ -2,6 +2,7 @@ package resources
 
 import (
 	_ "embed"
+	"strings"
 
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -57,7 +58,6 @@ func KeycloakSyncCronJob(cfg *costv1alpha1.CostManagementServiceConfig) *batchv1
 		EnvVal("KEYCLOAK_CLIENT_ID", spec.ClientID),
 		EnvFromSecret("KEYCLOAK_CLIENT_SECRET", spec.ClientSecretRef.Name, clientSecretKey(spec.ClientSecretRef.Key)),
 		EnvVal("KEYCLOAK_TLS_VERIFY", keycloakTLSVerifyStr(cfg)),
-		EnvVal("KEYCLOAK_CA_FILE", "/etc/keycloak-ca/ca.crt"),
 		EnvVal("SYNC_ORG_GROUP_PREFIX", orgGroupPrefix),
 		EnvVal("SYNC_ORG_ADMIN_SUBGROUP", orgAdminSubgroup),
 		EnvVal("SYNC_PRUNE_ORPHANS", boolEnvStr(costv1alpha1.BoolVal(spec.PruneOrphans, true))),
@@ -79,9 +79,14 @@ func KeycloakSyncCronJob(cfg *costv1alpha1.CostManagementServiceConfig) *batchv1
 		ReadOnly:  true,
 	})
 	// Same CA oauth2-proxy trusts: auth.keycloak.tls.caCertSecretName, else the
-	// service CA. The script adds it to the default trust store.
-	vols = append(vols, keycloakCAVolume(cfg))
-	mounts = append(mounts, corev1.VolumeMount{Name: "keycloak-ca", MountPath: "/etc/keycloak-ca", ReadOnly: true})
+	// service CA. The script adds it to the default trust store. Mount it only
+	// for verified HTTPS: the service-CA ConfigMap starts empty until injection,
+	// and an unused but unmountable key would block the Pod.
+	if keycloakSyncVerifiesTLS(cfg) {
+		env = append(env, EnvVal("KEYCLOAK_CA_FILE", "/etc/keycloak-ca/ca.crt"))
+		vols = append(vols, keycloakCAVolume(cfg))
+		mounts = append(mounts, corev1.VolumeMount{Name: "keycloak-ca", MountPath: "/etc/keycloak-ca", ReadOnly: true})
+	}
 
 	return &batchv1.CronJob{
 		TypeMeta: metav1.TypeMeta{APIVersion: "batch/v1", Kind: "CronJob"},
@@ -130,6 +135,13 @@ func KeycloakSyncCronJob(cfg *costv1alpha1.CostManagementServiceConfig) *batchv1
 			},
 		},
 	}
+}
+
+// keycloakSyncVerifiesTLS reports whether the sync talks HTTPS to Keycloak
+// with certificate verification, i.e. whether it needs the Keycloak CA.
+func keycloakSyncVerifiesTLS(cfg *costv1alpha1.CostManagementServiceConfig) bool {
+	return strings.HasPrefix(strings.ToLower(KeycloakURL(cfg)), "https://") &&
+		!cfg.Spec.Auth.Keycloak.TLS.InsecureSkipVerify
 }
 
 func keycloakTLSVerifyStr(cfg *costv1alpha1.CostManagementServiceConfig) string {
