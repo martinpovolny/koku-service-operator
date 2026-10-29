@@ -33,7 +33,7 @@ func KeycloakSyncConfigMap(cfg *costv1alpha1.CostManagementServiceConfig) *corev
 // group membership into RBAC Tenant/Principal/Group records.
 func KeycloakSyncCronJob(cfg *costv1alpha1.CostManagementServiceConfig) *batchv1.CronJob {
 	spec := cfg.Spec.RBAC.KeycloakSync
-	image := cfg.Spec.RBAC.Image.Repository + ":" + cfg.Spec.RBAC.Image.Tag
+	image, _ := ImageRef(cfg.Spec.RBAC.Image)
 
 	schedule := spec.Schedule
 	if schedule == "" {
@@ -86,6 +86,8 @@ func KeycloakSyncCronJob(cfg *costv1alpha1.CostManagementServiceConfig) *batchv1
 			Labels:    Labels(cfg, "rbac-keycloak-sync"),
 		},
 		Spec: batchv1.CronJobSpec{
+			// Explicit so SSA resumes schedules suspended during upgrade quiescence.
+			Suspend:                    new(false),
 			Schedule:                   schedule,
 			StartingDeadlineSeconds:    &CronJobStartingDeadlineSeconds,
 			ConcurrencyPolicy:          CronJobConcurrencyForbid,
