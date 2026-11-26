@@ -202,6 +202,7 @@ Quick Redpanda smoke (alternate path): [clusterbot.md](docs/development/clusterb
 - [docs/design/design-vs-jira.md](docs/design/design-vs-jira.md) — design decisions and best-practice analysis
 - [docs/design/status-model.md](docs/design/status-model.md) — status transitions: phase, conditions, upgrade stages, Events
 - [docs/design/security-context-strategy.md](docs/design/security-context-strategy.md) — OpenShift SCC strategy
+- [docs/design/onprem-sources-ingress-contract.md](docs/design/onprem-sources-ingress-contract.md) — on-prem Koku ↔ Sources ↔ Ingress contract and Kafka topic inventory (input for replacing ingress + Kafka)
 - [docs/design/koku-django-log-handler-problem.md](docs/design/koku-django-log-handler-problem.md) — why readOnlyRootFilesystem is blocked on koku containers
 - [docs/jira/](docs/jira/) — JIRA ticket source (COST-7678–7700)
 - `../cost-onprem-chart/cost-onprem/` — Helm chart this operator replaces (reference for resource shapes, env vars, volumes)
